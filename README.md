@@ -42,7 +42,7 @@ To get started, run the following command on a VPS:
 Want to skip the installation process? [Try the Dokploy Cloud](https://app.dokploy.com).
 
 ```bash
-curl -sSL https://dokploy.com/install.sh | sh
+curl -sSL https://raw.githubusercontent.com/gentslava/dokploy/master/install.sh | sh
 ```
 
 For detailed documentation, visit [docs.dokploy.com](https://docs.dokploy.com).
