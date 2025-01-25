@@ -5,7 +5,7 @@ on:
     branches: [master, main, canary, "feat/monitoring"]
 
 env:
-  IMAGE_NAME: dokploy/dokploy
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/dokploy
 
 jobs:
   docker-amd:
