@@ -2,7 +2,7 @@ name: Build Docker images
 
 on:
   push:
-    branches: ["canary", "main", "feat/monitoring"]
+    branches: [master, main, canary]
 
 jobs:
   build-and-push-server-image:
