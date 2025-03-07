@@ -1,7 +1,4 @@
-export * from "./auth/auth";
-export * from "./auth/token";
 export * from "./auth/random-password";
-// export * from "./db";
 export * from "./services/admin";
 export * from "./services/user";
 export * from "./services/project";
@@ -30,7 +27,6 @@ export * from "./services/ssh-key";
 export * from "./services/git-provider";
 export * from "./services/bitbucket";
 export * from "./services/github";
-export * from "./services/auth";
 export * from "./services/gitlab";
 export * from "./services/server";
 export * from "./services/application";
@@ -73,6 +69,7 @@ export * from "./utils/builders/utils";
 export * from "./utils/cluster/upload";
 
 export * from "./utils/docker/compose";
+export * from "./utils/docker/collision";
 export * from "./utils/docker/domain";
 export * from "./utils/docker/utils";
 export * from "./utils/docker/types";
@@ -117,3 +114,5 @@ export * from "./monitoring/utils";
 export * from "./db/validations/domain";
 export * from "./db/validations/index";
 export * from "./utils/gpu-setup";
+
+export * from "./lib/auth";

@@ -1,5 +1,6 @@
 import { BreadcrumbSidebar } from "@/components/shared/breadcrumb-sidebar";
 import { DateTooltip } from "@/components/shared/date-tooltip";
+import { StatusTooltip } from "@/components/shared/status-tooltip";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -50,15 +51,7 @@ import { ProjectEnvironment } from "./project-environment";
 export const ShowProjects = () => {
 	const utils = api.useUtils();
 	const { data, isLoading } = api.project.all.useQuery();
-	const { data: auth } = api.auth.get.useQuery();
-	const { data: user } = api.user.byAuthId.useQuery(
-		{
-			authId: auth?.id || "",
-		},
-		{
-			enabled: !!auth?.id && auth?.rol === "user",
-		},
-	);
+	const { data: auth } = api.user.get.useQuery();
 	const { mutateAsync } = api.project.remove.useMutation();
 	const [searchQuery, setSearchQuery] = useState("");
 
@@ -90,7 +83,7 @@ export const ShowProjects = () => {
 								</CardDescription>
 							</CardHeader>
 
-							{(auth?.rol === "admin" || user?.canCreateProjects) && (
+							{(auth?.role === "owner" || auth?.canCreateProjects) && (
 								<div className="">
 									<HandleProject />
 								</div>
@@ -176,8 +169,11 @@ export const ShowProjects = () => {
 																					<div key={app.applicationId}>
 																						<DropdownMenuSeparator />
 																						<DropdownMenuGroup>
-																							<DropdownMenuLabel className="font-normal capitalize text-xs">
+																							<DropdownMenuLabel className="font-normal capitalize text-xs flex items-center justify-between">
 																								{app.name}
+																								<StatusTooltip
+																									status={app.applicationStatus}
+																								/>
 																							</DropdownMenuLabel>
 																							<DropdownMenuSeparator />
 																							{app.domains.map((domain) => (
@@ -209,8 +205,11 @@ export const ShowProjects = () => {
 																					<div key={comp.composeId}>
 																						<DropdownMenuSeparator />
 																						<DropdownMenuGroup>
-																							<DropdownMenuLabel className="font-normal capitalize text-xs">
+																							<DropdownMenuLabel className="font-normal capitalize text-xs flex items-center justify-between">
 																								{comp.name}
+																								<StatusTooltip
+																									status={comp.composeStatus}
+																								/>
 																							</DropdownMenuLabel>
 																							<DropdownMenuSeparator />
 																							{comp.domains.map((domain) => (
@@ -286,8 +285,8 @@ export const ShowProjects = () => {
 																				<div
 																					onClick={(e) => e.stopPropagation()}
 																				>
-																					{(auth?.rol === "admin" ||
-																						user?.canDeleteProjects) && (
+																					{(auth?.role === "owner" ||
+																						auth?.canDeleteProjects) && (
 																						<AlertDialog>
 																							<AlertDialogTrigger className="w-full">
 																								<DropdownMenuItem
