@@ -26,6 +26,7 @@ import {
 	createComposeFileRaw,
 	createComposeFileRawRemote,
 } from "../providers/raw";
+import { randomizeDeployableSpecificationFile } from "./collision";
 import { randomizeSpecificationFile } from "./compose";
 import type {
 	ComposeSpecification,
@@ -108,7 +109,7 @@ export const loadDockerComposeRemote = async (
 		if (!stdout) return null;
 		const parsedConfig = load(stdout) as ComposeSpecification;
 		return parsedConfig;
-	} catch (err) {
+	} catch (_err) {
 		return null;
 	}
 };
@@ -190,7 +191,13 @@ export const addDomainToCompose = async (
 		return null;
 	}
 
-	if (compose.randomize) {
+	if (compose.isolatedDeployment) {
+		const randomized = randomizeDeployableSpecificationFile(
+			result,
+			compose.suffix || compose.appName,
+		);
+		result = randomized;
+	} else if (compose.randomize) {
 		const randomized = randomizeSpecificationFile(result, compose.suffix);
 		result = randomized;
 	}
@@ -204,13 +211,9 @@ export const addDomainToCompose = async (
 			throw new Error(`The service ${serviceName} not found in the compose`);
 		}
 
-		const httpLabels = await createDomainLabels(appName, domain, "web");
+		const httpLabels = createDomainLabels(appName, domain, "web");
 		if (https) {
-			const httpsLabels = await createDomainLabels(
-				appName,
-				domain,
-				"websecure",
-			);
+			const httpsLabels = createDomainLabels(appName, domain, "websecure");
 			httpLabels.push(...httpsLabels);
 		}
 
@@ -240,14 +243,18 @@ export const addDomainToCompose = async (
 			labels.push(...httpLabels);
 		}
 
-		// Add the dokploy-network to the service
-		result.services[serviceName].networks = addDokployNetworkToService(
-			result.services[serviceName].networks,
-		);
+		if (!compose.isolatedDeployment) {
+			// Add the dokploy-network to the service
+			result.services[serviceName].networks = addDokployNetworkToService(
+				result.services[serviceName].networks,
+			);
+		}
 	}
 
 	// Add dokploy-network to the root of the compose file
-	result.networks = addDokployNetworkToRoot(result.networks);
+	if (!compose.isolatedDeployment) {
+		result.networks = addDokployNetworkToRoot(result.networks);
+	}
 
 	return result;
 };
@@ -268,12 +275,20 @@ export const writeComposeFile = async (
 	}
 };
 
-export const createDomainLabels = async (
+export const createDomainLabels = (
 	appName: string,
 	domain: Domain,
 	entrypoint: "web" | "websecure",
 ) => {
-	const { host, port, https, uniqueConfigKey, certificateType, path } = domain;
+	const {
+		host,
+		port,
+		https,
+		uniqueConfigKey,
+		certificateType,
+		path,
+		customCertResolver,
+	} = domain;
 	const routerName = `${appName}-${uniqueConfigKey}-${entrypoint}`;
 	const labels = [
 		`traefik.http.routers.${routerName}.rule=Host(\`${host}\`)${path && path !== "/" ? ` && PathPrefix(\`${path}\`)` : ""}`,
@@ -292,6 +307,10 @@ export const createDomainLabels = async (
 		if (certificateType === "letsencrypt") {
 			labels.push(
 				`traefik.http.routers.${routerName}.tls.certresolver=letsencrypt`,
+			);
+		} else if (certificateType === "custom" && customCertResolver) {
+			labels.push(
+				`traefik.http.routers.${routerName}.tls.certresolver=${customCertResolver}`,
 			);
 		}
 	}

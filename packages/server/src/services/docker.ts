@@ -98,7 +98,7 @@ export const getConfig = async (
 		const config = JSON.parse(stdout);
 
 		return config;
-	} catch (error) {}
+	} catch (_error) {}
 };
 
 export const getContainersByAppNameMatch = async (
@@ -136,27 +136,29 @@ export const getContainersByAppNameMatch = async (
 			result = stdout.trim().split("\n");
 		}
 
-		const containers = result.map((line) => {
-			const parts = line.split(" | ");
-			const containerId = parts[0]
-				? parts[0].replace("CONTAINER ID : ", "").trim()
-				: "No container id";
-			const name = parts[1]
-				? parts[1].replace("Name: ", "").trim()
-				: "No container name";
+		const containers = result
+			.map((line) => {
+				const parts = line.split(" | ");
+				const containerId = parts[0]
+					? parts[0].replace("CONTAINER ID : ", "").trim()
+					: "No container id";
+				const name = parts[1]
+					? parts[1].replace("Name: ", "").trim()
+					: "No container name";
 
-			const state = parts[2]
-				? parts[2].replace("State: ", "").trim()
-				: "No state";
-			return {
-				containerId,
-				name,
-				state,
-			};
-		});
+				const state = parts[2]
+					? parts[2].replace("State: ", "").trim()
+					: "No state";
+				return {
+					containerId,
+					name,
+					state,
+				};
+			})
+			.sort((a, b) => a.name.localeCompare(b.name));
 
 		return containers || [];
-	} catch (error) {}
+	} catch (_error) {}
 
 	return [];
 };
@@ -190,31 +192,33 @@ export const getStackContainersByAppName = async (
 			result = stdout.trim().split("\n");
 		}
 
-		const containers = result.map((line) => {
-			const parts = line.split(" | ");
-			const containerId = parts[0]
-				? parts[0].replace("CONTAINER ID : ", "").trim()
-				: "No container id";
-			const name = parts[1]
-				? parts[1].replace("Name: ", "").trim()
-				: "No container name";
+		const containers = result
+			.map((line) => {
+				const parts = line.split(" | ");
+				const containerId = parts[0]
+					? parts[0].replace("CONTAINER ID : ", "").trim()
+					: "No container id";
+				const name = parts[1]
+					? parts[1].replace("Name: ", "").trim()
+					: "No container name";
 
-			const state = parts[2]
-				? parts[2].replace("State: ", "").trim().toLowerCase()
-				: "No state";
-			const node = parts[3]
-				? parts[3].replace("Node: ", "").trim()
-				: "No specific node";
-			return {
-				containerId,
-				name,
-				state,
-				node,
-			};
-		});
+				const state = parts[2]
+					? parts[2].replace("State: ", "").trim().toLowerCase()
+					: "No state";
+				const node = parts[3]
+					? parts[3].replace("Node: ", "").trim()
+					: "No specific node";
+				return {
+					containerId,
+					name,
+					state,
+					node,
+				};
+			})
+			.sort((a, b) => a.name.localeCompare(b.name));
 
 		return containers || [];
-	} catch (error) {}
+	} catch (_error) {}
 
 	return [];
 };
@@ -249,32 +253,34 @@ export const getServiceContainersByAppName = async (
 			result = stdout.trim().split("\n");
 		}
 
-		const containers = result.map((line) => {
-			const parts = line.split(" | ");
-			const containerId = parts[0]
-				? parts[0].replace("CONTAINER ID : ", "").trim()
-				: "No container id";
-			const name = parts[1]
-				? parts[1].replace("Name: ", "").trim()
-				: "No container name";
+		const containers = result
+			.map((line) => {
+				const parts = line.split(" | ");
+				const containerId = parts[0]
+					? parts[0].replace("CONTAINER ID : ", "").trim()
+					: "No container id";
+				const name = parts[1]
+					? parts[1].replace("Name: ", "").trim()
+					: "No container name";
 
-			const state = parts[2]
-				? parts[2].replace("State: ", "").trim().toLowerCase()
-				: "No state";
+				const state = parts[2]
+					? parts[2].replace("State: ", "").trim().toLowerCase()
+					: "No state";
 
-			const node = parts[3]
-				? parts[3].replace("Node: ", "").trim()
-				: "No specific node";
-			return {
-				containerId,
-				name,
-				state,
-				node,
-			};
-		});
+				const node = parts[3]
+					? parts[3].replace("Node: ", "").trim()
+					: "No specific node";
+				return {
+					containerId,
+					name,
+					state,
+					node,
+				};
+			})
+			.sort((a, b) => a.name.localeCompare(b.name));
 
 		return containers || [];
-	} catch (error) {}
+	} catch (_error) {}
 
 	return [];
 };
@@ -306,26 +312,28 @@ export const getContainersByAppLabel = async (
 
 		const lines = stdout.trim().split("\n");
 
-		const containers = lines.map((line) => {
-			const parts = line.split(" | ");
-			const containerId = parts[0]
-				? parts[0].replace("CONTAINER ID : ", "").trim()
-				: "No container id";
-			const name = parts[1]
-				? parts[1].replace("Name: ", "").trim()
-				: "No container name";
-			const state = parts[2]
-				? parts[2].replace("State: ", "").trim()
-				: "No state";
-			return {
-				containerId,
-				name,
-				state,
-			};
-		});
+		const containers = lines
+			.map((line) => {
+				const parts = line.split(" | ");
+				const containerId = parts[0]
+					? parts[0].replace("CONTAINER ID : ", "").trim()
+					: "No container id";
+				const name = parts[1]
+					? parts[1].replace("Name: ", "").trim()
+					: "No container name";
+				const state = parts[2]
+					? parts[2].replace("State: ", "").trim()
+					: "No state";
+				return {
+					containerId,
+					name,
+					state,
+				};
+			})
+			.sort((a, b) => a.name.localeCompare(b.name));
 
 		return containers || [];
-	} catch (error) {}
+	} catch (_error) {}
 
 	return [];
 };
@@ -344,7 +352,7 @@ export const containerRestart = async (containerId: string) => {
 		const config = JSON.parse(stdout);
 
 		return config;
-	} catch (error) {}
+	} catch (_error) {}
 };
 
 export const getSwarmNodes = async (serverId?: string) => {
@@ -373,7 +381,7 @@ export const getSwarmNodes = async (serverId?: string) => {
 			.split("\n")
 			.map((line) => JSON.parse(line));
 		return nodesArray;
-	} catch (error) {}
+	} catch (_error) {}
 };
 
 export const getNodeInfo = async (nodeId: string, serverId?: string) => {
@@ -399,7 +407,7 @@ export const getNodeInfo = async (nodeId: string, serverId?: string) => {
 		const nodeInfo = JSON.parse(stdout);
 
 		return nodeInfo;
-	} catch (error) {}
+	} catch (_error) {}
 };
 
 export const getNodeApplications = async (serverId?: string) => {
@@ -431,7 +439,7 @@ export const getNodeApplications = async (serverId?: string) => {
 			.filter((service) => !service.Name.startsWith("dokploy-"));
 
 		return appArray;
-	} catch (error) {}
+	} catch (_error) {}
 };
 
 export const getApplicationInfo = async (
@@ -464,5 +472,5 @@ export const getApplicationInfo = async (
 			.map((line) => JSON.parse(line));
 
 		return appArray;
-	} catch (error) {}
+	} catch (_error) {}
 };
