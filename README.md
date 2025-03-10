@@ -45,6 +45,12 @@ Want to skip the installation process? [Try the Dokploy Cloud](https://app.dokpl
 curl -sSL https://dokploy.com/install.sh | sh
 ```
 
+for canary version
+
+```bash
+curl -sSL https://raw.githubusercontent.com/Dokploy/dokploy/canary/install.sh | sh
+```
+
 For detailed documentation, visit [docs.dokploy.com](https://docs.dokploy.com).
 
 ## Sponsors
@@ -75,7 +81,7 @@ For detailed documentation, visit [docs.dokploy.com](https://docs.dokploy.com).
     <img src=".github/sponsors/light-node.webp" alt="Lightnode" height="70"/>
   </a>
 
-  
+
 </div>
 
 ### Premium Supporters 🥇
