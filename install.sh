@@ -43,16 +43,16 @@ install_dokploy() {
 
     get_ip() {
         local ip=""
-        
+
         # Try IPv4 first
         # First attempt: ifconfig.io
         ip=$(curl -4s --connect-timeout 5 https://ifconfig.io 2>/dev/null)
-        
+
         # Second attempt: icanhazip.com
         if [ -z "$ip" ]; then
             ip=$(curl -4s --connect-timeout 5 https://icanhazip.com 2>/dev/null)
         fi
-        
+
         # Third attempt: ipecho.net
         if [ -z "$ip" ]; then
             ip=$(curl -4s --connect-timeout 5 https://ipecho.net/plain 2>/dev/null)
@@ -62,12 +62,12 @@ install_dokploy() {
         if [ -z "$ip" ]; then
             # Try IPv6 with ifconfig.io
             ip=$(curl -6s --connect-timeout 5 https://ifconfig.io 2>/dev/null)
-            
+
             # Try IPv6 with icanhazip.com
             if [ -z "$ip" ]; then
                 ip=$(curl -6s --connect-timeout 5 https://icanhazip.com 2>/dev/null)
             fi
-            
+
             # Try IPv6 with ipecho.net
             if [ -z "$ip" ]; then
                 ip=$(curl -6s --connect-timeout 5 https://ipecho.net/plain 2>/dev/null)
@@ -88,7 +88,7 @@ install_dokploy() {
     echo "Using advertise address: $advertise_addr"
 
     docker swarm init --advertise-addr $advertise_addr
-    
+
      if [ $? -ne 0 ]; then
         echo "Error: Failed to initialize Docker Swarm" >&2
         exit 1
@@ -107,7 +107,7 @@ install_dokploy() {
 
     docker pull postgres:16
     docker pull redis:7
-    docker pull traefik:v3.1.2
+    docker pull traefik:3
     docker pull dokploy/dokploy:latest
 
     # Installation
@@ -150,7 +150,7 @@ install_dokploy() {
 
 update_dokploy() {
     echo "Updating Dokploy..."
-    
+
     # Pull the latest image
     docker pull dokploy/dokploy:latest
 
