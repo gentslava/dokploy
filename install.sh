@@ -107,7 +107,7 @@ install_dokploy() {
 
     docker pull postgres:16
     docker pull redis:7
-    docker pull traefik:latest
+    docker pull traefik:3
     docker pull gentslava/dokploy:latest
 
     # Installation
