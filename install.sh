@@ -18,16 +18,16 @@ install_dokploy() {
     fi
 
     # check if something is running on port 80
-    if ss -tulnp | grep ':80 ' >/dev/null; then
-        echo "Error: something is already running on port 80" >&2
-        exit 1
-    fi
+    # if ss -tulnp | grep ':80 ' >/dev/null; then
+    #     echo "Error: something is already running on port 80" >&2
+    #     exit 1
+    # fi
 
     # check if something is running on port 443
-    if ss -tulnp | grep ':443 ' >/dev/null; then
-        echo "Error: something is already running on port 443" >&2
-        exit 1
-    fi
+    # if ss -tulnp | grep ':443 ' >/dev/null; then
+    #     echo "Error: something is already running on port 443" >&2
+    #     exit 1
+    # fi
 
     command_exists() {
       command -v "$@" > /dev/null 2>&1
