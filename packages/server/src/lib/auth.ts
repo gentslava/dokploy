@@ -8,6 +8,10 @@ import { db } from "../db";
 import * as schema from "../db/schema";
 import { sendEmail } from "../verification/send-verification-email";
 import { IS_CLOUD } from "../constants";
+import { getPublicIpWithFallback } from "../wss/utils";
+import { updateUser } from "../services/user";
+import { getUserByToken } from "../services/admin";
+import { APIError } from "better-auth/api";
 
 const { handler, api } = betterAuth({
 	database: drizzleAdapter(db, {
@@ -28,6 +32,26 @@ const { handler, api } = betterAuth({
 			clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
 		},
 	},
+	...(!IS_CLOUD && {
+		async trustedOrigins() {
+			const admin = await db.query.member.findFirst({
+				where: eq(schema.member.role, "owner"),
+				with: {
+					user: true,
+				},
+			});
+
+			if (admin) {
+				return [
+					...(admin.user.serverIp
+						? [`http://${admin.user.serverIp}:3000`]
+						: []),
+					...(admin.user.host ? [`https://${admin.user.host}`] : []),
+				];
+			}
+			return [];
+		},
+	}),
 	emailVerification: {
 		sendOnSignUp: true,
 		autoSignInAfterVerification: true,
@@ -68,10 +92,39 @@ const { handler, api } = betterAuth({
 	databaseHooks: {
 		user: {
 			create: {
+				before: async (_user, context) => {
+					if (!IS_CLOUD) {
+						const xDokployToken =
+							context?.request?.headers?.get("x-dokploy-token");
+						if (xDokployToken) {
+							const user = await getUserByToken(xDokployToken);
+							if (!user) {
+								throw new APIError("BAD_REQUEST", {
+									message: "User not found",
+								});
+							}
+						} else {
+							const isAdminPresent = await db.query.member.findFirst({
+								where: eq(schema.member.role, "owner"),
+							});
+							if (isAdminPresent) {
+								throw new APIError("BAD_REQUEST", {
+									message: "Admin is already created",
+								});
+							}
+						}
+					}
+				},
 				after: async (user) => {
 					const isAdminPresent = await db.query.member.findFirst({
 						where: eq(schema.member.role, "owner"),
 					});
+
+					if (!IS_CLOUD) {
+						await updateUser(user.id, {
+							serverIp: await getPublicIpWithFallback(),
+						});
+					}
 
 					if (IS_CLOUD || !isAdminPresent) {
 						await db.transaction(async (tx) => {
@@ -116,6 +169,10 @@ const { handler, api } = betterAuth({
 				},
 			},
 		},
+	},
+	session: {
+		expiresIn: 60 * 60 * 24 * 3,
+		updateAge: 60 * 60 * 24,
 	},
 	user: {
 		modelName: "users_temp",
