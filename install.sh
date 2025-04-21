@@ -18,16 +18,16 @@ install_dokploy() {
     fi
 
     # check if something is running on port 80
-    # if ss -tulnp | grep ':80 ' >/dev/null; then
-    #     echo "Error: something is already running on port 80" >&2
-    #     exit 1
-    # fi
+    if ss -tulnp | grep ':80 ' >/dev/null; then
+        echo "Error: something is already running on port 80" >&2
+        exit 1
+    fi
 
     # check if something is running on port 443
-    # if ss -tulnp | grep ':443 ' >/dev/null; then
-    #     echo "Error: something is already running on port 443" >&2
-    #     exit 1
-    # fi
+    if ss -tulnp | grep ':443 ' >/dev/null; then
+        echo "Error: something is already running on port 443" >&2
+        exit 1
+    fi
 
     command_exists() {
       command -v "$@" > /dev/null 2>&1
@@ -84,7 +84,18 @@ install_dokploy() {
         echo "$ip"
     }
 
-    advertise_addr="${ADVERTISE_ADDR:-$(get_ip)}"
+    get_private_ip() {
+        ip addr show | grep -E "inet (192\.168\.|10\.|172\.1[6-9]\.|172\.2[0-9]\.|172\.3[0-1]\.)" | head -n1 | awk '{print $2}' | cut -d/ -f1
+    }
+
+    advertise_addr="${ADVERTISE_ADDR:-$(get_private_ip)}"
+
+    if [ -z "$advertise_addr" ]; then
+        echo "ERROR: We couldn't find a private IP address."
+        echo "Please set the ADVERTISE_ADDR environment variable manually."
+        echo "Example: export ADVERTISE_ADDR=192.168.1.100"
+        exit 1
+    fi
     echo "Using advertise address: $advertise_addr"
 
     docker swarm init --advertise-addr $advertise_addr
@@ -110,6 +121,23 @@ install_dokploy() {
     docker pull traefik:3
     docker pull gentslava/dokploy:latest
 
+    docker service create \
+    --name dokploy-postgres \
+    --constraint 'node.role==manager' \
+    --network dokploy-network \
+    --env POSTGRES_USER=dokploy \
+    --env POSTGRES_DB=dokploy \
+    --env POSTGRES_PASSWORD=amukds4wi9001583845717ad2 \
+    --mount type=volume,source=dokploy-postgres-database,target=/var/lib/postgresql/data \
+    postgres:16
+
+    docker service create \
+    --name dokploy-redis \
+    --constraint 'node.role==manager' \
+    --network dokploy-network \
+    --mount type=volume,source=redis-data-volume,target=/data \
+    redis:7
+
     # Installation
     docker service create \
       --name dokploy \
@@ -124,6 +152,34 @@ install_dokploy() {
       --constraint 'node.role == manager' \
       -e ADVERTISE_ADDR=$advertise_addr \
       gentslava/dokploy:latest
+
+    sleep 4
+
+    docker run -d \
+        --name dokploy-traefik \
+        --network dokploy-network \
+        --restart always \
+        -v /etc/dokploy/traefik/traefik.yml:/etc/traefik/traefik.yml \
+        -v /etc/dokploy/traefik/dynamic:/etc/dokploy/traefik/dynamic \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -p 80:80/tcp \
+        -p 443:443/tcp \
+        -p 443:443/udp \
+        traefik:3
+
+
+    # Optional: Use docker service create instead of docker run
+    #   docker service create \
+    #     --name dokploy-traefik \
+    #     --constraint 'node.role==manager' \
+    #     --network dokploy-network \
+    #     --mount type=bind,source=/etc/dokploy/traefik/traefik.yml,target=/etc/traefik/traefik.yml \
+    #     --mount type=bind,source=/etc/dokploy/traefik/dynamic,target=/etc/dokploy/traefik/dynamic \
+    #     --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
+    #     --publish mode=host,published=443,target=443 \
+    #     --publish mode=host,published=80,target=80 \
+    #     --publish mode=host,published=443,target=443,protocol=udp \
+    #     traefik:3
 
     GREEN="\033[0;32m"
     YELLOW="\033[1;33m"
@@ -141,7 +197,8 @@ install_dokploy() {
         fi
     }
 
-    formatted_addr=$(format_ip_for_url "$advertise_addr")
+    public_ip="${ADVERTISE_ADDR:-$(get_ip)}"
+    formatted_addr=$(format_ip_for_url "$public_ip")
     echo ""
     printf "${GREEN}Congratulations, Dokploy is installed!${NC}\n"
     printf "${BLUE}Wait 15 seconds for the server to start${NC}\n"
