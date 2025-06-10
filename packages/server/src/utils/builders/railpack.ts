@@ -2,7 +2,10 @@ import { createHash } from "node:crypto";
 import type { WriteStream } from "node:fs";
 import { nanoid } from "nanoid";
 import type { ApplicationNested } from ".";
-import { prepareEnvironmentVariables } from "../docker/utils";
+import {
+	parseEnvironmentKeyValuePair,
+	prepareEnvironmentVariables,
+} from "../docker/utils";
 import { getBuildAppDirectory } from "../filesystem/directory";
 import { execAsync } from "../process/execAsync";
 import { spawnAsync } from "../process/spawnAsync";
@@ -72,7 +75,7 @@ export const buildRailpack = async (
 					]
 				: []),
 			"--build-arg",
-			"BUILDKIT_SYNTAX=ghcr.io/railwayapp/railpack-frontend:v0.0.55",
+			"BUILDKIT_SYNTAX=ghcr.io/railwayapp/railpack-frontend:v0.0.64",
 			"-f",
 			`${buildAppDirectory}/railpack-plan.json`,
 			"--output",
@@ -81,10 +84,10 @@ export const buildRailpack = async (
 
 		// Add secrets properly formatted
 		const env: { [key: string]: string } = {};
-		for (const envVar of envVariables) {
-			const [key, value] = envVar.split("=");
+		for (const pair of envVariables) {
+			const [key, value] = parseEnvironmentKeyValuePair(pair);
 			if (key && value) {
-				buildArgs.push("--secret", `id=${key},env='${key}'`);
+				buildArgs.push("--secret", `id=${key},env=${key}`);
 				env[key] = value;
 			}
 		}
@@ -152,7 +155,7 @@ export const getRailpackCommand = (
 				]
 			: []),
 		"--build-arg",
-		"BUILDKIT_SYNTAX=ghcr.io/railwayapp/railpack-frontend:v0.0.55",
+		"BUILDKIT_SYNTAX=ghcr.io/railwayapp/railpack-frontend:v0.0.64",
 		"-f",
 		`${buildAppDirectory}/railpack-plan.json`,
 		"--output",
@@ -161,11 +164,11 @@ export const getRailpackCommand = (
 
 	// Add secrets properly formatted
 	const exportEnvs = [];
-	for (const envVar of envVariables) {
-		const [key, value] = envVar.split("=");
+	for (const pair of envVariables) {
+		const [key, value] = parseEnvironmentKeyValuePair(pair);
 		if (key && value) {
-			buildArgs.push("--secret", `id=${key},env='${key}'`);
-			exportEnvs.push(`export ${key}=${value}`);
+			buildArgs.push("--secret", `id=${key},env=${key}`);
+			exportEnvs.push(`export ${key}='${value}'`);
 		}
 	}
 

@@ -11,10 +11,10 @@ import { createInsertSchema } from "drizzle-zod";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { account, apikey, organization } from "./account";
-import { projects } from "./project";
-import { certificateType } from "./shared";
 import { backups } from "./backups";
+import { projects } from "./project";
 import { schedules } from "./schedule";
+import { certificateType } from "./shared";
 /**
  * This is an example of how to use the multi-project schema feature of Drizzle ORM. Use the same
  * database instance for multiple projects.
@@ -57,8 +57,10 @@ export const users_temp = pgTable("user_temp", {
 	sshPrivateKey: text("sshPrivateKey"),
 	enableDockerCleanup: boolean("enableDockerCleanup").notNull().default(false),
 	logCleanupCron: text("logCleanupCron"),
+	role: text("role").notNull().default("user"),
 	// Metrics
 	enablePaidFeatures: boolean("enablePaidFeatures").notNull().default(false),
+	allowImpersonation: boolean("allowImpersonation").notNull().default(false),
 	metricsConfig: jsonb("metricsConfig")
 		.$type<{
 			server: {
@@ -134,6 +136,8 @@ export const usersRelations = relations(users_temp, ({ one, many }) => ({
 const createSchema = createInsertSchema(users_temp, {
 	id: z.string().min(1),
 	isRegistered: z.boolean().optional(),
+}).omit({
+	role: true,
 });
 
 export const apiCreateUserInvitation = createSchema.pick({}).extend({

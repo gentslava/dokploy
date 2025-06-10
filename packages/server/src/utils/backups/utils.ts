@@ -1,13 +1,14 @@
+import { logger } from "@dokploy/server/lib/logger";
 import type { BackupSchedule } from "@dokploy/server/services/backup";
 import type { Destination } from "@dokploy/server/services/destination";
 import { scheduleJob, scheduledJobs } from "node-schedule";
 import { keepLatestNBackups } from ".";
+import { runComposeBackup } from "./compose";
 import { runMariadbBackup } from "./mariadb";
 import { runMongoBackup } from "./mongo";
 import { runMySqlBackup } from "./mysql";
 import { runPostgresBackup } from "./postgres";
 import { runWebServerBackup } from "./web-server";
-import { runComposeBackup } from "./compose";
 
 export const scheduleBackup = (backup: BackupSchedule) => {
 	const {
@@ -116,7 +117,7 @@ export const getComposeContainerCommand = (
 	composeType: "stack" | "docker-compose" | undefined,
 ) => {
 	if (composeType === "stack") {
-		return `docker ps -q --filter "status=running" --filter "label=com.docker.stack.namespace=${appName}" --filter "label=com.docker.swarm.service.name=${serviceName}" | head -n 1`;
+		return `docker ps -q --filter "status=running" --filter "label=com.docker.stack.namespace=${appName}" --filter "label=com.docker.swarm.service.name=${appName}_${serviceName}" | head -n 1`;
 	}
 	return `docker ps -q --filter "status=running" --filter "label=com.docker.compose.project=${appName}" --filter "label=com.docker.compose.service=${serviceName}" | head -n 1`;
 };
@@ -159,7 +160,10 @@ export const generateBackupCommand = (backup: BackupSchedule) => {
 		case "mysql": {
 			const mysql = backup.mysql;
 			if (backupType === "database" && mysql) {
-				return getMysqlBackupCommand(backup.database, mysql.databasePassword);
+				return getMysqlBackupCommand(
+					backup.database,
+					mysql.databaseRootPassword,
+				);
 			}
 			if (backupType === "compose" && backup.metadata?.mysql) {
 				return getMysqlBackupCommand(
@@ -219,6 +223,17 @@ export const getBackupCommand = (
 ) => {
 	const containerSearch = getContainerSearchCommand(backup);
 	const backupCommand = generateBackupCommand(backup);
+
+	logger.info(
+		{
+			containerSearch,
+			backupCommand,
+			rcloneCommand,
+			logPath,
+		},
+		`Executing backup command: ${backup.databaseType} ${backup.backupType}`,
+	);
+
 	return `
 	set -eo pipefail;
 	echo "[$(date)] Starting backup process..." >> ${logPath};
@@ -231,7 +246,7 @@ export const getBackupCommand = (
 	fi
 
 	echo "[$(date)] Container Up: $CONTAINER_ID" >> ${logPath};
-	
+
 	# Run the backup command and capture the exit status
 	BACKUP_OUTPUT=$(${backupCommand} 2>&1 >/dev/null) || {
 		echo "[$(date)] ❌ Error: Backup failed" >> ${logPath};
@@ -241,14 +256,14 @@ export const getBackupCommand = (
 
 	echo "[$(date)] ✅ backup completed successfully" >> ${logPath};
 	echo "[$(date)] Starting upload to S3..." >> ${logPath};
-	
+
 	# Run the upload command and capture the exit status
 	UPLOAD_OUTPUT=$(${backupCommand} | ${rcloneCommand} 2>&1 >/dev/null) || {
 		echo "[$(date)] ❌ Error: Upload to S3 failed" >> ${logPath};
 		echo "Error: $UPLOAD_OUTPUT" >> ${logPath};
 		exit 1;
 	}
-	
+
 	echo "[$(date)] ✅ Upload to S3 completed successfully" >> ${logPath};
 	echo "Backup done ✅" >> ${logPath};
 	`;

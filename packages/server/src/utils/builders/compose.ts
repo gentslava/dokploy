@@ -35,7 +35,7 @@ export const buildCompose = async (compose: ComposeNested, logPath: string) => {
 
 		if (compose.isolatedDeployment) {
 			await execAsync(
-				`docker network inspect ${compose.appName} >/dev/null 2>&1 || docker network create --attachable ${compose.appName}`,
+				`docker network inspect ${compose.appName} >/dev/null 2>&1 || docker network create ${composeType === "stack" ? "--driver overlay" : ""} --attachable ${compose.appName}`,
 			);
 		}
 
@@ -190,7 +190,8 @@ const createEnvFile = (compose: ComposeNested) => {
 		join(COMPOSE_PATH, appName, "code", "docker-compose.yml");
 
 	const envFilePath = join(dirname(composeFilePath), ".env");
-	let envContent = env || "";
+	let envContent = `APP_NAME=${appName}\n`;
+	envContent += env || "";
 	if (!envContent.includes("DOCKER_CONFIG")) {
 		envContent += "\nDOCKER_CONFIG=/root/.docker/config.json";
 	}
@@ -219,7 +220,8 @@ export const getCreateEnvFileCommand = (compose: ComposeNested) => {
 
 	const envFilePath = join(dirname(composeFilePath), ".env");
 
-	let envContent = env || "";
+	let envContent = `APP_NAME=${appName}\n`;
+	envContent += env || "";
 	if (!envContent.includes("DOCKER_CONFIG")) {
 		envContent += "\nDOCKER_CONFIG=/root/.docker/config.json";
 	}

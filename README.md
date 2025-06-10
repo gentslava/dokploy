@@ -91,7 +91,18 @@ For detailed documentation, visit [docs.dokploy.com](https://docs.dokploy.com).
 
 </div>
 
+### Elite Contributors 🥈
+
+<div style="display: flex; align-items: center; gap: 20px;">
+
+  <a href="https://americancloud.com/?ref=dokploy" target="_blank" style="display: inline-block; padding: 10px; border-radius: 10px;">
+    <img src=".github/sponsors/american-cloud.png" alt="AmericanCloud" height="70"/>
+  </a>
+
+</div>
 <!-- Elite Contributors 🥈 -->
+
+
 
 <!-- Add Elite Contributors here -->
 
@@ -104,6 +115,7 @@ For detailed documentation, visit [docs.dokploy.com](https://docs.dokploy.com).
 <a href="https://itsdb-center.com?ref=dokploy "><img src=".github/sponsors/its.png" width="65px" alt="Itsdb-center"/></a>
 <a href="https://openalternative.co/?ref=dokploy "><img src=".github/sponsors/openalternative.png" width="65px" alt="Openalternative"/></a>
 <a href="https://synexa.ai/?ref=dokploy"><img src=".github/sponsors/synexa.png" width="65px" alt="Synexa"/></a>
+
 </div>
 
 
@@ -135,19 +147,6 @@ For detailed documentation, visit [docs.dokploy.com](https://docs.dokploy.com).
 <a href="https://youtu.be/mznYKPvhcfw">
   <img src="https://dokploy.com/banner.png" alt="Watch the video" width="400" style="border-radius:20px;"/>
 </a>
-
-<!-- ## Supported OS
-
-- Ubuntu 24.04 LTS
-- Ubuntu 23.10
-- Ubuntu 22.04 LTS
-- Ubuntu 20.04 LTS
-- Ubuntu 18.04 LTS
-- Debian 12
-- Debian 11
-- Fedora 40
-- Centos 9
-- Centos 8 -->
 
 ## Contributing
 
