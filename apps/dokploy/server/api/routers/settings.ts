@@ -825,6 +825,9 @@ export const settingsRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ input }) => {
+			if (IS_CLOUD) {
+				return true;
+			}
 			if (input.cronExpression) {
 				return startLogCleanup(input.cronExpression);
 			}
@@ -833,6 +836,14 @@ export const settingsRouter = createTRPCRouter({
 
 	getLogCleanupStatus: adminProcedure.query(async () => {
 		return getLogCleanupStatus();
+	}),
+
+	getDokployCloudIps: adminProcedure.query(async () => {
+		if (!IS_CLOUD) {
+			return [];
+		}
+		const ips = process.env.DOKPLOY_CLOUD_IPS?.split(",");
+		return ips;
 	}),
 });
 
