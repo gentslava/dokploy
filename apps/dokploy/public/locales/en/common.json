@@ -194,6 +194,8 @@
 	"common.userNav.requests": "Requests",
 	"common.userNav.settings": "Settings",
 	"common.userNav.logOut": "Log Out",
+	"common.userNav.selectLanguage": "Select Language",
+	"common.loading": "Loading...",
 	"common.sidebar.selectOrganization": "Select Organization",
 	"common.sidebar.organizations": "Organizations",
 	"common.sidebar.deleteOrganization": "Delete Organization",
