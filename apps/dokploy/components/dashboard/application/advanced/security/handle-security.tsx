@@ -147,9 +147,7 @@ export const HandleSecurity = ({
 										<FormLabel>{t("dashboard.security.username")}</FormLabel>
 										<FormControl>
 											<Input
-												placeholder={t(
-													"dashboard.security.usernamePlaceholder",
-												)}
+												placeholder={t("dashboard.security.usernamePlaceholder")}
 												{...field}
 											/>
 										</FormControl>
@@ -166,9 +164,7 @@ export const HandleSecurity = ({
 										<FormLabel>{t("dashboard.security.password")}</FormLabel>
 										<FormControl>
 											<Input
-												placeholder={t(
-													"dashboard.security.passwordPlaceholder",
-												)}
+												placeholder={t("dashboard.security.passwordPlaceholder")}
 												{...field}
 											/>
 										</FormControl>
