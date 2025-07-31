@@ -185,7 +185,7 @@ export const HandleRedirect = ({
 					<Button>{children}</Button>
 				)}
 			</DialogTrigger>
-			<DialogContent className="max-h-screen overflow-y-auto sm:max-w-lg">
+			<DialogContent className="sm:max-w-lg">
 				<DialogHeader>
 					<DialogTitle>{t("dashboard.redirects.redirects")}</DialogTitle>
 					<DialogDescription>

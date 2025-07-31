@@ -196,7 +196,7 @@ export const Enable2FA = () => {
 					{t("settings.twoFactor.enable")}
 				</Button>
 			</DialogTrigger>
-			<DialogContent className="max-h-screen overflow-y-auto sm:max-w-xl">
+			<DialogContent className="sm:max-w-xl">
 				<DialogHeader>
 					<DialogTitle>{t("settings.twoFactor.setup")}</DialogTitle>
 					<DialogDescription>

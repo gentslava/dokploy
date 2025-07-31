@@ -1,6 +1,6 @@
-import { AlertBlock } from '@/components/shared/alert-block'
-import { CodeEditor } from '@/components/shared/code-editor'
-import { Button } from '@/components/ui/button'
+import { AlertBlock } from '@/components/shared/alert-block';
+import { CodeEditor } from '@/components/shared/code-editor';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -9,28 +9,21 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog'
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { api } from '@/utils/api'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { PenBoxIcon } from 'lucide-react'
-import { useTranslation } from 'next-i18next'
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { toast } from 'sonner'
-import { z } from 'zod'
+} from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { api } from '@/utils/api';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { PenBoxIcon } from 'lucide-react';
+import { useTranslation } from 'next-i18next';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { z } from 'zod';
 
 const mountSchema = z.object({
   mountPath: z.string().min(1, 'Mount path required'),
-})
+});
 
 const mySchema = z.discriminatedUnion('type', [
   z
@@ -52,34 +45,21 @@ const mySchema = z.discriminatedUnion('type', [
       filePath: z.string().min(1, 'File path required'),
     })
     .merge(mountSchema),
-])
+]);
 
-type UpdateMount = z.infer<typeof mySchema>
+type UpdateMount = z.infer<typeof mySchema>;
 
 interface Props {
-  mountId: string
-  type: 'bind' | 'volume' | 'file'
-  refetch: () => void
-  serviceType:
-    | 'application'
-    | 'postgres'
-    | 'redis'
-    | 'mongo'
-    | 'redis'
-    | 'mysql'
-    | 'mariadb'
-    | 'compose'
+  mountId: string;
+  type: 'bind' | 'volume' | 'file';
+  refetch: () => void;
+  serviceType: 'application' | 'postgres' | 'redis' | 'mongo' | 'redis' | 'mysql' | 'mariadb' | 'compose';
 }
 
-export const UpdateVolume = ({
-  mountId,
-  type,
-  refetch,
-  serviceType,
-}: Props) => {
-  const { t } = useTranslation('dashboard')
-  const [isOpen, setIsOpen] = useState(false)
-  const _utils = api.useUtils()
+export const UpdateVolume = ({ mountId, type, refetch, serviceType }: Props) => {
+  const { t } = useTranslation('dashboard');
+  const [isOpen, setIsOpen] = useState(false);
+  const _utils = api.useUtils();
   const { data } = api.mounts.one.useQuery(
     {
       mountId,
@@ -87,10 +67,9 @@ export const UpdateVolume = ({
     {
       enabled: !!mountId,
     }
-  )
+  );
 
-  const { mutateAsync, isLoading, error, isError } =
-    api.mounts.update.useMutation()
+  const { mutateAsync, isLoading, error, isError } = api.mounts.update.useMutation();
 
   const form = useForm<UpdateMount>({
     defaultValues: {
@@ -99,9 +78,9 @@ export const UpdateVolume = ({
       mountPath: '',
     },
     resolver: zodResolver(mySchema),
-  })
+  });
 
-  const typeForm = form.watch('type')
+  const typeForm = form.watch('type');
 
   useEffect(() => {
     if (data) {
@@ -110,23 +89,23 @@ export const UpdateVolume = ({
           hostPath: data.hostPath || '',
           mountPath: data.mountPath,
           type: 'bind',
-        })
+        });
       } else if (typeForm === 'volume') {
         form.reset({
           volumeName: data.volumeName || '',
           mountPath: data.mountPath,
           type: 'volume',
-        })
+        });
       } else if (typeForm === 'file') {
         form.reset({
           content: data.content || '',
           mountPath: serviceType === 'compose' ? '/' : data.mountPath,
           filePath: data.filePath || '',
           type: 'file',
-        })
+        });
       }
     }
-  }, [form, form.reset, data])
+  }, [form, form.reset, data]);
 
   const onSubmit = async (data: UpdateMount) => {
     if (data.type === 'bind') {
@@ -137,12 +116,12 @@ export const UpdateVolume = ({
         mountId,
       })
         .then(() => {
-          toast.success(t('dashboard.volumes.mountUpdated'))
-          setIsOpen(false)
+          toast.success(t('dashboard.volumes.mountUpdated'));
+          setIsOpen(false);
         })
         .catch(() => {
-          toast.error(t('dashboard.volumes.errorUpdatingBindMount'))
-        })
+          toast.error(t('dashboard.volumes.errorUpdatingBindMount'));
+        });
     } else if (data.type === 'volume') {
       await mutateAsync({
         volumeName: data.volumeName,
@@ -151,12 +130,12 @@ export const UpdateVolume = ({
         mountId,
       })
         .then(() => {
-          toast.success(t('dashboard.volumes.mountUpdated'))
-          setIsOpen(false)
+          toast.success(t('dashboard.volumes.mountUpdated'));
+          setIsOpen(false);
         })
         .catch(() => {
-          toast.error(t('dashboard.volumes.errorUpdatingVolumeMount'))
-        })
+          toast.error(t('dashboard.volumes.errorUpdatingVolumeMount'));
+        });
     } else if (data.type === 'file') {
       await mutateAsync({
         content: data.content,
@@ -166,63 +145,43 @@ export const UpdateVolume = ({
         mountId,
       })
         .then(() => {
-          toast.success(t('dashboard.volumes.mountUpdated'))
-          setIsOpen(false)
+          toast.success(t('dashboard.volumes.mountUpdated'));
+          setIsOpen(false);
         })
         .catch(() => {
-          toast.error(t('dashboard.volumes.errorUpdatingFileMount'))
-        })
+          toast.error(t('dashboard.volumes.errorUpdatingFileMount'));
+        });
     }
-    refetch()
-  }
+    refetch();
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="group hover:bg-blue-500/10 "
-          isLoading={isLoading}
-        >
-          <PenBoxIcon className="size-3.5  text-primary group-hover:text-blue-500" />
+        <Button variant='ghost' size='icon' className='group hover:bg-blue-500/10 ' isLoading={isLoading}>
+          <PenBoxIcon className='size-3.5  text-primary group-hover:text-blue-500' />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-screen  overflow-y-auto sm:max-w-3xl">
+      <DialogContent className='sm:max-w-3xl'>
         <DialogHeader>
           <DialogTitle>{t('dashboard.volumes.update')}</DialogTitle>
-          <DialogDescription>
-            {t('dashboard.volumes.updateMount')}
-          </DialogDescription>
+          <DialogDescription>{t('dashboard.volumes.updateMount')}</DialogDescription>
         </DialogHeader>
-        {isError && <AlertBlock type="error">{error?.message}</AlertBlock>}
-        {type === 'file' && (
-          <AlertBlock type="warning">
-            {t('dashboard.volumes.fileUpdateWarning')}
-          </AlertBlock>
-        )}
+        {isError && <AlertBlock type='error'>{error?.message}</AlertBlock>}
+        {type === 'file' && <AlertBlock type='warning'>{t('dashboard.volumes.fileUpdateWarning')}</AlertBlock>}
 
         <Form {...form}>
-          <form
-            id="hook-form-update-volume"
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="grid w-full gap-4"
-          >
-            <div className="flex flex-col gap-4">
+          <form id='hook-form-update-volume' onSubmit={form.handleSubmit(onSubmit)} className='grid w-full gap-4'>
+            <div className='flex flex-col gap-4'>
               {type === 'bind' && (
                 <FormField
                   control={form.control}
-                  name="hostPath"
+                  name='hostPath'
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('dashboard.volumes.hostPath')}</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder={t(
-                            'dashboard.volumes.hostPathPlaceholder'
-                          )}
-                          {...field}
-                        />
+                        <Input placeholder={t('dashboard.volumes.hostPathPlaceholder')} {...field} />
                       </FormControl>
 
                       <FormMessage />
@@ -233,15 +192,13 @@ export const UpdateVolume = ({
               {type === 'volume' && (
                 <FormField
                   control={form.control}
-                  name="volumeName"
+                  name='volumeName'
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('dashboard.volumes.volumeName')}</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder={t(
-                            'dashboard.volumes.volumeNamePlaceholder'
-                          )}
+                          placeholder={t('dashboard.volumes.volumeNamePlaceholder')}
                           {...field}
                           value={field.value || ''}
                         />
@@ -256,17 +213,17 @@ export const UpdateVolume = ({
                 <>
                   <FormField
                     control={form.control}
-                    name="content"
+                    name='content'
                     render={({ field }) => (
-                      <FormItem className="w-full max-w-[45rem]">
+                      <FormItem className='w-full max-w-[45rem]'>
                         <FormLabel>{t('dashboard.volumes.content')}</FormLabel>
                         <FormControl>
                           <FormControl>
                             <CodeEditor
-                              language="properties"
+                              language='properties'
                               placeholder={`NODE_ENV=production
 PORT=3000`}
-                              className="h-96 font-mono w-full"
+                              className='h-96 font-mono w-full'
                               {...field}
                             />
                           </FormControl>
@@ -278,18 +235,12 @@ PORT=3000`}
 
                   <FormField
                     control={form.control}
-                    name="filePath"
+                    name='filePath'
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t('dashboard.volumes.filePath')}</FormLabel>
                         <FormControl>
-                          <Input
-                            disabled
-                            placeholder={t(
-                              'dashboard.volumes.filePathPlaceholder'
-                            )}
-                            {...field}
-                          />
+                          <Input disabled placeholder={t('dashboard.volumes.filePathPlaceholder')} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -300,17 +251,12 @@ PORT=3000`}
               {serviceType !== 'compose' && (
                 <FormField
                   control={form.control}
-                  name="mountPath"
+                  name='mountPath'
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('dashboard.volumes.mountPath')}</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder={t(
-                            'dashboard.volumes.mountPathPlaceholder'
-                          )}
-                          {...field}
-                        />
+                        <Input placeholder={t('dashboard.volumes.mountPathPlaceholder')} {...field} />
                       </FormControl>
 
                       <FormMessage />
@@ -323,7 +269,7 @@ PORT=3000`}
               <Button
                 isLoading={isLoading}
                 // form="hook-form-update-volume"
-                type="submit"
+                type='submit'
               >
                 {t('dashboard.volumes.update')}
               </Button>
@@ -332,5 +278,5 @@ PORT=3000`}
         </Form>
       </DialogContent>
     </Dialog>
-  )
-}
+  );
+};

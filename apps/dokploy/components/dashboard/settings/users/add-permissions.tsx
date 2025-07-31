@@ -125,7 +125,7 @@ export const AddUserPermissions = ({ userId }: Props) => {
 					{t("settings.permissions.addPermissions")}
 				</DropdownMenuItem>
 			</DialogTrigger>
-			<DialogContent className="max-h-[85vh]  overflow-y-auto sm:max-w-4xl">
+			<DialogContent className="max-h-[85vh]  sm:max-w-4xl">
 				<DialogHeader>
 					<DialogTitle>{t("settings.permissions.permissions")}</DialogTitle>
 					<DialogDescription>
@@ -144,7 +144,7 @@ export const AddUserPermissions = ({ userId }: Props) => {
 							control={form.control}
 							name="canCreateProjects"
 							render={({ field }) => (
-								<FormItem className=" flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+								<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
 									<div className="space-y-0.5">
 										<FormLabel>
 											{t("settings.permissions.createProjects")}

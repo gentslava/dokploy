@@ -24,7 +24,7 @@ export const GPUSupportModal = () => {
 					<span>{t("settings.gpuSupportModal.gpuSetup")}</span>
 				</DropdownMenuItem>
 			</DialogTrigger>
-			<DialogContent className="sm:max-w-4xl overflow-y-auto max-h-screen">
+			<DialogContent className="sm:max-w-4xl">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						{t("settings.gpuSupportModal.dokployServerGpuSetup")}

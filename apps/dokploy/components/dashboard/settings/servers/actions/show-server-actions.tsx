@@ -28,7 +28,7 @@ export const ShowServerActions = ({ serverId }: Props) => {
 					{t("settings.serverActions.viewActions")}
 				</DropdownMenuItem>
 			</DialogTrigger>
-			<DialogContent className="sm:max-w-xl overflow-y-auto max-h-screen">
+			<DialogContent className="sm:max-w-xl">
 				<div className="flex flex-col gap-1">
 					<DialogTitle className="text-xl">
 						{t("settings.serverActions.webServerSettings")}

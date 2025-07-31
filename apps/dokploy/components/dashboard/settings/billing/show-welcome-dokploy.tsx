@@ -43,7 +43,7 @@ export const ShowWelcomeDokploy = () => {
 	return (
 		<>
 			<Dialog open={open} onOpenChange={handleClose}>
-				<DialogContent className="sm:max-w-xl max-h-screen overflow-y-auto">
+				<DialogContent className="sm:max-w-xl">
 					<DialogHeader>
 						<DialogTitle className="text-2xl font-semibold text-center">
 							{t("settings.billing.welcome.title")}

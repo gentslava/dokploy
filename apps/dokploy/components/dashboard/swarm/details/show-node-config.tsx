@@ -31,7 +31,7 @@ export const ShowNodeConfig = ({ nodeId, serverId }: Props) => {
 					{t("dashboard.swarm.config")}
 				</Button>
 			</DialogTrigger>
-			<DialogContent className={"sm:max-w-5xl overflow-y-auto max-h-screen"}>
+			<DialogContent className={"sm:max-w-5xl"}>
 				<DialogHeader>
 					<DialogTitle>{t("dashboard.swarm.nodeConfig")}</DialogTitle>
 					<DialogDescription>

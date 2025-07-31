@@ -100,7 +100,7 @@ export const AddBitbucketProvider = () => {
 					<span>{t("settings.gitProviders.bitbucket")}</span>
 				</Button>
 			</DialogTrigger>
-			<DialogContent className="sm:max-w-2xl  overflow-y-auto max-h-screen">
+			<DialogContent className="sm:max-w-2xl ">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						{t("settings.gitProviders.bitbucket.title")}{" "}

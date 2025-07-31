@@ -124,7 +124,7 @@ export const UpdateTraefikConfig = ({ applicationId }: Props) => {
 			<DialogTrigger asChild>
 				<Button isLoading={isLoading}>{t("dashboard.traefik.modify")}</Button>
 			</DialogTrigger>
-			<DialogContent className="max-h-screen  overflow-y-auto sm:max-w-4xl">
+			<DialogContent className="sm:max-w-4xl">
 				<DialogHeader>
 					<DialogTitle>
 						{t("dashboard.traefik.updateTraefikConfig")}

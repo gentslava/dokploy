@@ -34,6 +34,7 @@ import { AddGithubProvider } from "./github/add-github-provider";
 import { EditGithubProvider } from "./github/edit-github-provider";
 import { AddGitlabProvider } from "./gitlab/add-gitlab-provider";
 import { EditGitlabProvider } from "./gitlab/edit-gitlab-provider";
+import { Badge } from "@/components/ui/badge";
 
 export const ShowGitProviders = () => {
 	const { t } = useTranslation("settings");
@@ -57,7 +58,7 @@ export const ShowGitProviders = () => {
 
 	return (
 		<div className="w-full">
-			<Card className="h-full bg-sidebar  p-2.5 rounded-xl  max-w-5xl mx-auto">
+			<Card className="h-full bg-sidebar p-2.5 rounded-xl max-w-5xl mx-auto">
 				<div className="rounded-xl bg-background shadow-md ">
 					<CardHeader className="">
 						<CardTitle className="text-xl flex flex-row gap-2">
@@ -77,14 +78,14 @@ export const ShowGitProviders = () => {
 						) : (
 							<>
 								{data?.length === 0 ? (
-									<div className="flex flex-col items-center gap-3  min-h-[25vh] justify-center">
+									<div className="flex flex-col items-center gap-3 min-h-[25vh] justify-center">
 										<GitBranch className="size-8 self-center text-muted-foreground" />
 										<span className="text-base text-muted-foreground text-center">
 											{t("settings.gitProviders.createFirst")}
 										</span>
 										<div>
 											<div className="flex items-center bg-sidebar p-1 w-full rounded-lg">
-												<div className="flex items-center gap-4 p-3.5 rounded-lg bg-background border  w-full">
+												<div className="flex flex-wrap items-center gap-4 p-3.5 rounded-lg bg-background border w-full [&>button]:grow">
 													<AddGithubProvider />
 													<AddGitlabProvider />
 													<AddBitbucketProvider />
@@ -94,13 +95,13 @@ export const ShowGitProviders = () => {
 										</div>
 									</div>
 								) : (
-									<div className="flex flex-col gap-4  min-h-[25vh]">
+									<div className="flex flex-col gap-4 min-h-[25vh]">
 										<div className="flex flex-col gap-2 rounded-lg ">
 											<span className="text-base font-medium">
 												{t("settings.gitProviders.availableProviders")}
 											</span>
 											<div className="flex items-center bg-sidebar p-1 w-full rounded-lg">
-												<div className="flex items-center gap-4 p-3.5 rounded-lg bg-background border  w-full">
+												<div className="flex flex-wrap items-center gap-4 p-3.5 rounded-lg bg-background border w-full [&>button]:grow">
 													<AddGithubProvider />
 													<AddGitlabProvider />
 													<AddBitbucketProvider />
@@ -162,7 +163,13 @@ export const ShowGitProviders = () => {
 
 															<div className="flex flex-row gap-1">
 																{!haveGithubRequirements && isGithub && (
-																	<div className="flex flex-col  gap-1">
+																	<div className="flex flex-row gap-1 items-center">
+																		<Badge
+																			variant="outline"
+																			className="text-xs"
+																		>
+																			Action Required
+																		</Badge>
 																		<Link
 																			href={`${gitProvider?.github?.githubAppName}/installations/new?state=gh_setup:${gitProvider?.github.githubId}`}
 																			className={buttonVariants({
@@ -175,7 +182,7 @@ export const ShowGitProviders = () => {
 																	</div>
 																)}
 																{haveGithubRequirements && isGithub && (
-																	<div className="flex flex-col  gap-1">
+																	<div className="flex flex-col gap-1">
 																		<Link
 																			href={`${gitProvider?.github?.githubAppName}`}
 																			target="_blank"
@@ -189,7 +196,13 @@ export const ShowGitProviders = () => {
 																	</div>
 																)}
 																{!haveGitlabRequirements && isGitlab && (
-																	<div className="flex flex-col  gap-1">
+																	<div className="flex flex-row gap-1 items-center">
+																		<Badge
+																			variant="outline"
+																			className="text-xs"
+																		>
+																			Action Required
+																		</Badge>
 																		<Link
 																			href={getGitlabUrl(
 																				gitProvider.gitlab?.applicationId || "",

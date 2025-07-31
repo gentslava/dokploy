@@ -22,7 +22,9 @@ export const ToggleDockerCleanup = ({ serverId }: Props) => {
 		},
 	);
 
-	const enabled = data?.user.enableDockerCleanup || server?.enableDockerCleanup;
+	const enabled = serverId
+		? server?.enableDockerCleanup
+		: data?.user.enableDockerCleanup;
 
 	const { mutateAsync } = api.settings.updateDockerCleanup.useMutation();
 

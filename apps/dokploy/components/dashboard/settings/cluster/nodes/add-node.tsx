@@ -29,7 +29,7 @@ export const AddNode = ({ serverId }: Props) => {
 					{t("settings.cluster.add.title")}
 				</Button>
 			</DialogTrigger>
-			<DialogContent className="max-h-screen  overflow-y-auto sm:max-w-4xl">
+			<DialogContent className="sm:max-w-4xl">
 				<DialogHeader>
 					<DialogTitle>{t("settings.cluster.add.title")}</DialogTitle>
 					<DialogDescription className="flex flex-col gap-2">

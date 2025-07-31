@@ -22,7 +22,7 @@ export const ShowTraefikFileSystemModal = ({ serverId }: Props) => {
 					{t("settings.traefik.showTraefikFileSystem")}
 				</DropdownMenuItem>
 			</DialogTrigger>
-			<DialogContent className="sm:max-w-7xl  overflow-y-auto max-h-screen ">
+			<DialogContent className="sm:max-w-7xl  ">
 				<ShowTraefikSystem serverId={serverId} />
 			</DialogContent>
 		</Dialog>

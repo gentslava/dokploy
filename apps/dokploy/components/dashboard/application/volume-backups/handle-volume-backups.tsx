@@ -192,9 +192,60 @@ export const HandleVolumeBackups = ({
     }
   }, [form, volumeBackup, volumeBackupId])
 
-  const { mutateAsync, isLoading } = volumeBackupId
-    ? api.volumeBackups.update.useMutation()
-    : api.volumeBackups.create.useMutation()
+	return (
+		<Dialog open={isOpen} onOpenChange={setIsOpen}>
+			<DialogTrigger asChild>
+				{volumeBackupId ? (
+					<Button
+						variant="ghost"
+						size="icon"
+						className="group hover:bg-blue-500/10"
+					>
+						<PenBoxIcon className="size-3.5 text-primary group-hover:text-blue-500" />
+					</Button>
+				) : (
+					<Button>
+						<PlusCircle className="w-4 h-4 mr-2" />
+						Add Volume Backup
+					</Button>
+				)}
+			</DialogTrigger>
+			<DialogContent
+				className={cn(
+					"overflow-y-auto",
+					volumeBackupType === "compose" || volumeBackupType === "application"
+						? "max-h-[95vh] sm:max-w-2xl"
+						: " sm:max-w-lg",
+				)}
+			>
+				<DialogHeader>
+					<DialogTitle>
+						{volumeBackupId ? "Edit" : "Create"} Volume Backup
+					</DialogTitle>
+					<DialogDescription>
+						Create a volume backup to backup your volume to a destination
+					</DialogDescription>
+				</DialogHeader>
+				<Form {...form}>
+					<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+						<FormField
+							control={form.control}
+							name="name"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel className="flex items-center gap-2">
+										Task Name
+									</FormLabel>
+									<FormControl>
+										<Input placeholder="Daily Database Backup" {...field} />
+									</FormControl>
+									<FormDescription>
+										A descriptive name for your scheduled task
+									</FormDescription>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!id && !volumeBackupId) return

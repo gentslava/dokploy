@@ -54,7 +54,7 @@ export const ShowConvertedCompose = ({ composeId }: Props) => {
 					{t("dashboard.compose.previewCompose")}
 				</Button>
 			</DialogTrigger>
-			<DialogContent className="sm:max-w-6xl max-h-[50rem] overflow-y-auto">
+			<DialogContent className="sm:max-w-6xl max-h-[50rem]">
 				<DialogHeader>
 					<DialogTitle>{t("dashboard.compose.convertedCompose")}</DialogTitle>
 					<DialogDescription>

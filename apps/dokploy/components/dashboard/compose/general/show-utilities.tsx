@@ -25,7 +25,7 @@ export const ShowUtilities = ({ composeId }: Props) => {
 			<DialogTrigger asChild>
 				<Button variant="ghost">{t("dashboard.compose.showUtilities")}</Button>
 			</DialogTrigger>
-			<DialogContent className="max-h-screen overflow-y-auto sm:max-w-5xl">
+			<DialogContent className="sm:max-w-5xl">
 				<DialogHeader>
 					<DialogTitle>{t("dashboard.compose.utilities")}</DialogTitle>
 					<DialogDescription>

@@ -132,7 +132,7 @@ export const HandlePorts = ({
 					<Button>{children}</Button>
 				)}
 			</DialogTrigger>
-			<DialogContent className="max-h-screen  overflow-y-auto sm:max-w-lg">
+			<DialogContent className="sm:max-w-lg">
 				<DialogHeader>
 					<DialogTitle>{t("dashboard.ports.ports")}</DialogTitle>
 					<DialogDescription>

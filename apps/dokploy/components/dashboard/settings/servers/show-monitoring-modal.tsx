@@ -23,7 +23,7 @@ export const ShowMonitoringModal = ({ url, token }: Props) => {
 					{t("settings.monitoring.showMonitoring")}
 				</DropdownMenuItem>
 			</DialogTrigger>
-			<DialogContent className="sm:max-w-7xl  overflow-y-auto max-h-screen ">
+			<DialogContent className="sm:max-w-7xl  ">
 				<div className="flex gap-4 py-4 w-full">
 					<ShowPaidMonitoring BASE_URL={url} token={token} />
 				</div>

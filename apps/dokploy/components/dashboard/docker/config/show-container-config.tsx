@@ -46,7 +46,7 @@ export const ShowContainerConfig = ({ containerId, serverId }: Props) => {
 						{t("dashboard.docker.config.description")}
 					</DialogDescription>
 				</DialogHeader>
-				<div className="text-wrap rounded-lg border p-4 text-sm bg-card overflow-y-auto max-h-[80vh]">
+				<div className="text-wrap rounded-lg border p-4 overflow-y-auto text-sm bg-card max-h-[80vh]">
 					<code>
 						<pre className="whitespace-pre-wrap break-words">
 							<CodeEditor

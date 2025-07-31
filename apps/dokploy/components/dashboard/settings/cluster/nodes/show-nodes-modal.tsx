@@ -22,7 +22,7 @@ export const ShowNodesModal = ({ serverId }: Props) => {
 					{t("settings.nodes.showSwarmNodes")}
 				</DropdownMenuItem>
 			</DialogTrigger>
-			<DialogContent className="min-w-[70vw] overflow-y-auto max-h-screen">
+			<DialogContent className="min-w-[70vw]">
 				<div className="grid w-full gap-1">
 					<ShowNodes serverId={serverId} />
 				</div>

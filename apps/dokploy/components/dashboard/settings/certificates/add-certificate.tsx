@@ -113,7 +113,7 @@ export const AddCertificate = () => {
 					{t("settings.certificates.add")}
 				</Button>
 			</DialogTrigger>
-			<DialogContent className="max-h-screen  overflow-y-auto sm:max-w-2xl">
+			<DialogContent className="sm:max-w-2xl">
 				<DialogHeader>
 					<DialogTitle>{t("settings.certificates.create.title")}</DialogTitle>
 					<DialogDescription>
@@ -251,7 +251,7 @@ export const AddCertificate = () => {
 						/>
 					</form>
 
-					<DialogFooter className="flex w-full flex-row !justify-end pt-3">
+					<DialogFooter className="flex w-full flex-row !justify-end">
 						<Button
 							isLoading={isLoading}
 							form="hook-form-add-certificate"

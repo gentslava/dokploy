@@ -22,7 +22,7 @@ export const ShowSchedulesModal = ({ serverId }: Props) => {
 					{t("settings.schedules.showSchedules")}
 				</DropdownMenuItem>
 			</DialogTrigger>
-			<DialogContent className="sm:max-w-5xl  overflow-y-auto max-h-screen ">
+			<DialogContent className="sm:max-w-5xl  ">
 				<ShowSchedules id={serverId} scheduleType="server" />
 			</DialogContent>
 		</Dialog>
