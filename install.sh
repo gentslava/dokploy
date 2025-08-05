@@ -150,32 +150,31 @@ install_dokploy() {
 
     sleep 4
 
-    docker run -d \
-        --name dokploy-traefik \
-        --restart always \
-        -v /etc/dokploy/traefik/traefik.yml:/etc/traefik/traefik.yml \
-        -v /etc/dokploy/traefik/dynamic:/etc/dokploy/traefik/dynamic \
-        -v /var/run/docker.sock:/var/run/docker.sock \
-        -p 80:80/tcp \
-        -p 443:443/tcp \
-        -p 443:443/udp \
-        traefik:v3
-
-    docker network connect dokploy-network dokploy-traefik
-
+    # docker run -d \
+    #   --name dokploy-traefik \
+    #   --restart always \
+    #   -v /etc/dokploy/traefik/traefik.yml:/etc/traefik/traefik.yml \
+    #   -v /etc/dokploy/traefik/dynamic:/etc/dokploy/traefik/dynamic \
+    #   -v /var/run/docker.sock:/var/run/docker.sock \
+    #   -p 80:80/tcp \
+    #   -p 443:443/tcp \
+    #   -p 443:443/udp \
+    #   traefik:v3
+    #
+    # docker network connect dokploy-network dokploy-traefik
 
     # Optional: Use docker service create instead of docker run
-    #   docker service create \
-    #     --name dokploy-traefik \
-    #     --constraint 'node.role==manager' \
-    #     --network dokploy-network \
-    #     --mount type=bind,source=/etc/dokploy/traefik/traefik.yml,target=/etc/traefik/traefik.yml \
-    #     --mount type=bind,source=/etc/dokploy/traefik/dynamic,target=/etc/dokploy/traefik/dynamic \
-    #     --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
-    #     --publish mode=host,published=443,target=443 \
-    #     --publish mode=host,published=80,target=80 \
-    #     --publish mode=host,published=443,target=443,protocol=udp \
-    #     traefik:v3.1.2
+    docker service create \
+      --name dokploy-traefik \
+      --constraint 'node.role==manager' \
+      --network dokploy-network \
+      --mount type=bind,source=/etc/dokploy/traefik/traefik.yml,target=/etc/traefik/traefik.yml \
+      --mount type=bind,source=/etc/dokploy/traefik/dynamic,target=/etc/dokploy/traefik/dynamic \
+      --mount type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock \
+      --publish mode=host,published=443,target=443 \
+      --publish mode=host,published=80,target=80 \
+      --publish mode=host,published=443,target=443,protocol=udp \
+      traefik:v3
 
     GREEN="\033[0;32m"
     YELLOW="\033[1;33m"
