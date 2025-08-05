@@ -35,7 +35,8 @@ export const DockerTerminalModal = ({
 
 	const handleMainDialogOpenChange = (open: boolean) => {
 		if (!open) {
-			setConfirmDialogOpen(true);
+			// setConfirmDialogOpen(true);
+			setMainDialogOpen(false);
 		} else {
 			setMainDialogOpen(true);
 		}
