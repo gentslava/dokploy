@@ -1,5 +1,5 @@
 import type http from "node:http";
-import { findServerById, validateWebSocketRequest } from "@dokploy/server";
+import { findServerById, validateRequest } from "@dokploy/server";
 import { spawn } from "node-pty";
 import { Client } from "ssh2";
 import { WebSocketServer } from "ws";
@@ -32,7 +32,7 @@ export const setupDockerContainerTerminalWebSocketServer = (
 		const containerId = url.searchParams.get("containerId");
 		const activeWay = url.searchParams.get("activeWay");
 		const serverId = url.searchParams.get("serverId");
-		const { user, session } = await validateWebSocketRequest(req);
+		const { user, session } = await validateRequest(req);
 
 		if (!containerId) {
 			ws.close(4000, "containerId no provided");
@@ -50,27 +50,27 @@ export const setupDockerContainerTerminalWebSocketServer = (
 					throw new Error("No SSH key available for this server");
 
 				const conn = new Client();
-				let stdout = "";
-				let stderr = "";
+				let _stdout = "";
+				let _stderr = "";
 				conn
 					.once("ready", () => {
 						conn.exec(
-							`docker exec -it ${containerId} ${activeWay}`,
+							`docker exec -it -w / ${containerId} ${activeWay}`,
 							{ pty: true },
 							(err, stream) => {
 								if (err) throw err;
 
 								stream
-									.on("close", (code: number, signal: string) => {
+									.on("close", (code: number, _signal: string) => {
 										ws.send(`\nContainer closed with code: ${code}\n`);
 										conn.end();
 									})
 									.on("data", (data: string) => {
-										stdout += data.toString();
+										_stdout += data.toString();
 										ws.send(data.toString());
 									})
 									.stderr.on("data", (data) => {
-										stderr += data.toString();
+										_stderr += data.toString();
 										ws.send(data.toString());
 										console.error("Error: ", data.toString());
 									});
@@ -107,7 +107,7 @@ export const setupDockerContainerTerminalWebSocketServer = (
 				const shell = getShell();
 				const ptyProcess = spawn(
 					shell,
-					["-c", `docker exec -it ${containerId} ${activeWay}`],
+					["-c", `docker exec -it -w / ${containerId} ${activeWay}`],
 					{},
 				);
 

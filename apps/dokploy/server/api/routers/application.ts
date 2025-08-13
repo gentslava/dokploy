@@ -1,37 +1,14 @@
 import {
-	createTRPCRouter,
-	protectedProcedure,
-	uploadProcedure,
-} from "@/server/api/trpc";
-import { db } from "@/server/db";
-import {
-	apiCreateApplication,
-	apiFindMonitoringStats,
-	apiFindOneApplication,
-	apiReloadApplication,
-	apiSaveBitbucketProvider,
-	apiSaveBuildType,
-	apiSaveDockerProvider,
-	apiSaveEnvironmentVariables,
-	apiSaveGitProvider,
-	apiSaveGithubProvider,
-	apiSaveGitlabProvider,
-	apiUpdateApplication,
-	applications,
-} from "@/server/db/schema";
-import type { DeploymentJob } from "@/server/queues/queue-types";
-import { cleanQueuesByApplication, myQueue } from "@/server/queues/queueSetup";
-import { deploy } from "@/server/utils/deploy";
-import { uploadFileSchema } from "@/utils/schema";
-import {
-	IS_CLOUD,
 	addNewService,
 	checkServiceAccess,
 	createApplication,
 	deleteAllMiddlewares,
 	findApplicationById,
+	findGitProviderById,
 	findProjectById,
 	getApplicationStats,
+	IS_CLOUD,
+	mechanizeDockerContainer,
 	readConfig,
 	readRemoteConfig,
 	removeDeployments,
@@ -54,14 +31,45 @@ import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
+import {
+	createTRPCRouter,
+	protectedProcedure,
+	uploadProcedure,
+} from "@/server/api/trpc";
+import { db } from "@/server/db";
+import {
+	apiCreateApplication,
+	apiFindMonitoringStats,
+	apiFindOneApplication,
+	apiReloadApplication,
+	apiSaveBitbucketProvider,
+	apiSaveBuildType,
+	apiSaveDockerProvider,
+	apiSaveEnvironmentVariables,
+	apiSaveGiteaProvider,
+	apiSaveGithubProvider,
+	apiSaveGitlabProvider,
+	apiSaveGitProvider,
+	apiUpdateApplication,
+	applications,
+} from "@/server/db/schema";
+import type { DeploymentJob } from "@/server/queues/queue-types";
+import { cleanQueuesByApplication, myQueue } from "@/server/queues/queueSetup";
+import { deploy } from "@/server/utils/deploy";
+import { uploadFileSchema } from "@/utils/schema";
 
 export const applicationRouter = createTRPCRouter({
 	create: protectedProcedure
 		.input(apiCreateApplication)
 		.mutation(async ({ input, ctx }) => {
 			try {
-				if (ctx.user.rol === "user") {
-					await checkServiceAccess(ctx.user.authId, input.projectId, "create");
+				if (ctx.user.role === "member") {
+					await checkServiceAccess(
+						ctx.user.id,
+						input.projectId,
+						ctx.session.activeOrganizationId,
+						"create",
+					);
 				}
 
 				if (IS_CLOUD && !input.serverId) {
@@ -72,7 +80,7 @@ export const applicationRouter = createTRPCRouter({
 				}
 
 				const project = await findProjectById(input.projectId);
-				if (project.adminId !== ctx.user.adminId) {
+				if (project.organizationId !== ctx.session.activeOrganizationId) {
 					throw new TRPCError({
 						code: "UNAUTHORIZED",
 						message: "You are not authorized to access this project",
@@ -80,8 +88,12 @@ export const applicationRouter = createTRPCRouter({
 				}
 				const newApplication = await createApplication(input);
 
-				if (ctx.user.rol === "user") {
-					await addNewService(ctx.user.authId, newApplication.applicationId);
+				if (ctx.user.role === "member") {
+					await addNewService(
+						ctx.user.id,
+						newApplication.applicationId,
+						project.organizationId,
+					);
 				}
 				return newApplication;
 			} catch (error: unknown) {
@@ -98,62 +110,110 @@ export const applicationRouter = createTRPCRouter({
 	one: protectedProcedure
 		.input(apiFindOneApplication)
 		.query(async ({ input, ctx }) => {
-			if (ctx.user.rol === "user") {
+			if (ctx.user.role === "member") {
 				await checkServiceAccess(
-					ctx.user.authId,
+					ctx.user.id,
 					input.applicationId,
+					ctx.session.activeOrganizationId,
 					"access",
 				);
 			}
 			const application = await findApplicationById(input.applicationId);
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to access this application",
 				});
 			}
-			return application;
+
+			let hasGitProviderAccess = true;
+			let unauthorizedProvider: string | null = null;
+
+			const getGitProviderId = () => {
+				switch (application.sourceType) {
+					case "github":
+						return application.github?.gitProviderId;
+					case "gitlab":
+						return application.gitlab?.gitProviderId;
+					case "bitbucket":
+						return application.bitbucket?.gitProviderId;
+					case "gitea":
+						return application.gitea?.gitProviderId;
+					default:
+						return null;
+				}
+			};
+
+			const gitProviderId = getGitProviderId();
+
+			if (gitProviderId) {
+				try {
+					const gitProvider = await findGitProviderById(gitProviderId);
+					if (gitProvider.userId !== ctx.session.userId) {
+						hasGitProviderAccess = false;
+						unauthorizedProvider = application.sourceType;
+					}
+				} catch {
+					hasGitProviderAccess = false;
+					unauthorizedProvider = application.sourceType;
+				}
+			}
+
+			return {
+				...application,
+				hasGitProviderAccess,
+				unauthorizedProvider,
+			};
 		}),
 
 	reload: protectedProcedure
 		.input(apiReloadApplication)
 		.mutation(async ({ input, ctx }) => {
 			const application = await findApplicationById(input.applicationId);
-			if (application.project.adminId !== ctx.user.adminId) {
+
+			try {
+				if (
+					application.project.organizationId !==
+					ctx.session.activeOrganizationId
+				) {
+					throw new TRPCError({
+						code: "UNAUTHORIZED",
+						message: "You are not authorized to reload this application",
+					});
+				}
+
+				await updateApplicationStatus(input.applicationId, "idle");
+				await mechanizeDockerContainer(application);
+				await updateApplicationStatus(input.applicationId, "done");
+				return true;
+			} catch (error) {
+				await updateApplicationStatus(input.applicationId, "error");
 				throw new TRPCError({
-					code: "UNAUTHORIZED",
-					message: "You are not authorized to reload this application",
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Error reloading application",
+					cause: error,
 				});
 			}
-			if (application.serverId) {
-				await stopServiceRemote(application.serverId, input.appName);
-			} else {
-				await stopService(input.appName);
-			}
-			await updateApplicationStatus(input.applicationId, "idle");
-
-			if (application.serverId) {
-				await startServiceRemote(application.serverId, input.appName);
-			} else {
-				await startService(input.appName);
-			}
-			await updateApplicationStatus(input.applicationId, "done");
-			return true;
 		}),
 
 	delete: protectedProcedure
 		.input(apiFindOneApplication)
 		.mutation(async ({ input, ctx }) => {
-			if (ctx.user.rol === "user") {
+			if (ctx.user.role === "member") {
 				await checkServiceAccess(
-					ctx.user.authId,
+					ctx.user.id,
 					input.applicationId,
+					ctx.session.activeOrganizationId,
 					"delete",
 				);
 			}
 			const application = await findApplicationById(input.applicationId);
 
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to delete this application",
@@ -184,7 +244,7 @@ export const applicationRouter = createTRPCRouter({
 			for (const operation of cleanupOperations) {
 				try {
 					await operation();
-				} catch (error) {}
+				} catch (_) {}
 			}
 
 			return result[0];
@@ -194,7 +254,7 @@ export const applicationRouter = createTRPCRouter({
 		.input(apiFindOneApplication)
 		.mutation(async ({ input, ctx }) => {
 			const service = await findApplicationById(input.applicationId);
-			if (service.project.adminId !== ctx.user.adminId) {
+			if (service.project.organizationId !== ctx.session.activeOrganizationId) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to stop this application",
@@ -214,7 +274,7 @@ export const applicationRouter = createTRPCRouter({
 		.input(apiFindOneApplication)
 		.mutation(async ({ input, ctx }) => {
 			const service = await findApplicationById(input.applicationId);
-			if (service.project.adminId !== ctx.user.adminId) {
+			if (service.project.organizationId !== ctx.session.activeOrganizationId) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to start this application",
@@ -235,7 +295,9 @@ export const applicationRouter = createTRPCRouter({
 		.input(apiFindOneApplication)
 		.mutation(async ({ input, ctx }) => {
 			const application = await findApplicationById(input.applicationId);
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to redeploy this application",
@@ -268,7 +330,9 @@ export const applicationRouter = createTRPCRouter({
 		.input(apiSaveEnvironmentVariables)
 		.mutation(async ({ input, ctx }) => {
 			const application = await findApplicationById(input.applicationId);
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to save this environment",
@@ -284,7 +348,9 @@ export const applicationRouter = createTRPCRouter({
 		.input(apiSaveBuildType)
 		.mutation(async ({ input, ctx }) => {
 			const application = await findApplicationById(input.applicationId);
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to save this build type",
@@ -297,6 +363,8 @@ export const applicationRouter = createTRPCRouter({
 				dockerContextPath: input.dockerContextPath,
 				dockerBuildStage: input.dockerBuildStage,
 				herokuVersion: input.herokuVersion,
+				isStaticSpa: input.isStaticSpa,
+				railpackVersion: input.railpackVersion,
 			});
 
 			return true;
@@ -305,7 +373,9 @@ export const applicationRouter = createTRPCRouter({
 		.input(apiSaveGithubProvider)
 		.mutation(async ({ input, ctx }) => {
 			const application = await findApplicationById(input.applicationId);
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to save this github provider",
@@ -319,6 +389,9 @@ export const applicationRouter = createTRPCRouter({
 				buildPath: input.buildPath,
 				applicationStatus: "idle",
 				githubId: input.githubId,
+				watchPaths: input.watchPaths,
+				triggerType: input.triggerType,
+				enableSubmodules: input.enableSubmodules,
 			});
 
 			return true;
@@ -327,7 +400,9 @@ export const applicationRouter = createTRPCRouter({
 		.input(apiSaveGitlabProvider)
 		.mutation(async ({ input, ctx }) => {
 			const application = await findApplicationById(input.applicationId);
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to save this gitlab provider",
@@ -343,6 +418,8 @@ export const applicationRouter = createTRPCRouter({
 				gitlabId: input.gitlabId,
 				gitlabProjectId: input.gitlabProjectId,
 				gitlabPathNamespace: input.gitlabPathNamespace,
+				watchPaths: input.watchPaths,
+				enableSubmodules: input.enableSubmodules,
 			});
 
 			return true;
@@ -351,7 +428,9 @@ export const applicationRouter = createTRPCRouter({
 		.input(apiSaveBitbucketProvider)
 		.mutation(async ({ input, ctx }) => {
 			const application = await findApplicationById(input.applicationId);
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to save this bitbucket provider",
@@ -365,6 +444,34 @@ export const applicationRouter = createTRPCRouter({
 				sourceType: "bitbucket",
 				applicationStatus: "idle",
 				bitbucketId: input.bitbucketId,
+				watchPaths: input.watchPaths,
+				enableSubmodules: input.enableSubmodules,
+			});
+
+			return true;
+		}),
+	saveGiteaProvider: protectedProcedure
+		.input(apiSaveGiteaProvider)
+		.mutation(async ({ input, ctx }) => {
+			const application = await findApplicationById(input.applicationId);
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+					message: "You are not authorized to save this gitea provider",
+				});
+			}
+			await updateApplication(input.applicationId, {
+				giteaRepository: input.giteaRepository,
+				giteaOwner: input.giteaOwner,
+				giteaBranch: input.giteaBranch,
+				giteaBuildPath: input.giteaBuildPath,
+				sourceType: "gitea",
+				applicationStatus: "idle",
+				giteaId: input.giteaId,
+				watchPaths: input.watchPaths,
+				enableSubmodules: input.enableSubmodules,
 			});
 
 			return true;
@@ -373,7 +480,9 @@ export const applicationRouter = createTRPCRouter({
 		.input(apiSaveDockerProvider)
 		.mutation(async ({ input, ctx }) => {
 			const application = await findApplicationById(input.applicationId);
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to save this docker provider",
@@ -394,7 +503,9 @@ export const applicationRouter = createTRPCRouter({
 		.input(apiSaveGitProvider)
 		.mutation(async ({ input, ctx }) => {
 			const application = await findApplicationById(input.applicationId);
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to save this git provider",
@@ -407,6 +518,69 @@ export const applicationRouter = createTRPCRouter({
 				customGitSSHKeyId: input.customGitSSHKeyId,
 				sourceType: "git",
 				applicationStatus: "idle",
+				watchPaths: input.watchPaths,
+				enableSubmodules: input.enableSubmodules,
+			});
+
+			return true;
+		}),
+	disconnectGitProvider: protectedProcedure
+		.input(apiFindOneApplication)
+		.mutation(async ({ input, ctx }) => {
+			const application = await findApplicationById(input.applicationId);
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+					message: "You are not authorized to disconnect this git provider",
+				});
+			}
+
+			// Reset all git provider related fields
+			await updateApplication(input.applicationId, {
+				// GitHub fields
+				repository: null,
+				branch: null,
+				owner: null,
+				buildPath: "/",
+				githubId: null,
+				triggerType: "push",
+
+				// GitLab fields
+				gitlabRepository: null,
+				gitlabOwner: null,
+				gitlabBranch: null,
+				gitlabBuildPath: null,
+				gitlabId: null,
+				gitlabProjectId: null,
+				gitlabPathNamespace: null,
+
+				// Bitbucket fields
+				bitbucketRepository: null,
+				bitbucketOwner: null,
+				bitbucketBranch: null,
+				bitbucketBuildPath: null,
+				bitbucketId: null,
+
+				// Gitea fields
+				giteaRepository: null,
+				giteaOwner: null,
+				giteaBranch: null,
+				giteaBuildPath: null,
+				giteaId: null,
+
+				// Custom Git fields
+				customGitBranch: null,
+				customGitBuildPath: null,
+				customGitUrl: null,
+				customGitSSHKeyId: null,
+
+				// Common fields
+				sourceType: "github", // Reset to default
+				applicationStatus: "idle",
+				watchPaths: null,
+				enableSubmodules: false,
 			});
 
 			return true;
@@ -415,7 +589,9 @@ export const applicationRouter = createTRPCRouter({
 		.input(apiFindOneApplication)
 		.mutation(async ({ input, ctx }) => {
 			const application = await findApplicationById(input.applicationId);
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to mark this application as running",
@@ -427,7 +603,9 @@ export const applicationRouter = createTRPCRouter({
 		.input(apiUpdateApplication)
 		.mutation(async ({ input, ctx }) => {
 			const application = await findApplicationById(input.applicationId);
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to update this application",
@@ -451,7 +629,9 @@ export const applicationRouter = createTRPCRouter({
 		.input(apiFindOneApplication)
 		.mutation(async ({ input, ctx }) => {
 			const application = await findApplicationById(input.applicationId);
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to refresh this application",
@@ -466,7 +646,9 @@ export const applicationRouter = createTRPCRouter({
 		.input(apiFindOneApplication)
 		.mutation(async ({ input, ctx }) => {
 			const application = await findApplicationById(input.applicationId);
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to deploy this application",
@@ -500,7 +682,9 @@ export const applicationRouter = createTRPCRouter({
 		.input(apiFindOneApplication)
 		.mutation(async ({ input, ctx }) => {
 			const application = await findApplicationById(input.applicationId);
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to clean this application",
@@ -513,7 +697,9 @@ export const applicationRouter = createTRPCRouter({
 		.input(apiFindOneApplication)
 		.query(async ({ input, ctx }) => {
 			const application = await findApplicationById(input.applicationId);
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to read this application",
@@ -548,7 +734,7 @@ export const applicationRouter = createTRPCRouter({
 
 			const app = await findApplicationById(input.applicationId as string);
 
-			if (app.project.adminId !== ctx.user.adminId) {
+			if (app.project.organizationId !== ctx.session.activeOrganizationId) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to deploy this application",
@@ -590,7 +776,9 @@ export const applicationRouter = createTRPCRouter({
 		.mutation(async ({ input, ctx }) => {
 			const application = await findApplicationById(input.applicationId);
 
-			if (application.project.adminId !== ctx.user.adminId) {
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to update this application",
@@ -610,7 +798,7 @@ export const applicationRouter = createTRPCRouter({
 		}),
 	readAppMonitoring: protectedProcedure
 		.input(apiFindMonitoringStats)
-		.query(async ({ input, ctx }) => {
+		.query(async ({ input }) => {
 			if (IS_CLOUD) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
@@ -620,5 +808,50 @@ export const applicationRouter = createTRPCRouter({
 			const stats = await getApplicationStats(input.appName);
 
 			return stats;
+		}),
+	move: protectedProcedure
+		.input(
+			z.object({
+				applicationId: z.string(),
+				targetProjectId: z.string(),
+			}),
+		)
+		.mutation(async ({ input, ctx }) => {
+			const application = await findApplicationById(input.applicationId);
+			if (
+				application.project.organizationId !== ctx.session.activeOrganizationId
+			) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+					message: "You are not authorized to move this application",
+				});
+			}
+
+			const targetProject = await findProjectById(input.targetProjectId);
+			if (targetProject.organizationId !== ctx.session.activeOrganizationId) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+					message: "You are not authorized to move to this project",
+				});
+			}
+
+			// Update the application's projectId
+			const updatedApplication = await db
+				.update(applications)
+				.set({
+					projectId: input.targetProjectId,
+				})
+				.where(eq(applications.applicationId, input.applicationId))
+				.returning()
+				.then((res) => res[0]);
+
+			if (!updatedApplication) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to move application",
+				});
+			}
+
+			return updatedApplication;
 		}),
 });

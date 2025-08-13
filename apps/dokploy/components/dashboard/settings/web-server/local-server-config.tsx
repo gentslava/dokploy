@@ -18,7 +18,6 @@ import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Settings } from "lucide-react";
 import { useTranslation } from "next-i18next";
-import React from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -78,7 +77,7 @@ const LocalServerConfig = ({ onSave }: Props) => {
 					<div className="flex flex-row items-center gap-2 justify-between w-full">
 						<div className="flex flex-row gap-2 items-center">
 							<Settings className="h-4 w-4" />
-							<span className=" dark:hover:text-white">
+							<span className="dark:hover:text-white">
 								{t("settings.terminal.connectionSettings")}
 							</span>
 						</div>

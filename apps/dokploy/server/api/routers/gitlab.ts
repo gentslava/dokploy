@@ -9,7 +9,6 @@ import {
 
 import { db } from "@/server/db";
 import {
-	IS_CLOUD,
 	createGitlab,
 	findGitlabById,
 	getGitlabBranches,
@@ -26,7 +25,11 @@ export const gitlabRouter = createTRPCRouter({
 		.input(apiCreateGitlab)
 		.mutation(async ({ input, ctx }) => {
 			try {
-				return await createGitlab(input, ctx.user.adminId);
+				return await createGitlab(
+					input,
+					ctx.session.activeOrganizationId,
+					ctx.session.userId,
+				);
 			} catch (error) {
 				throw new TRPCError({
 					code: "BAD_REQUEST",
@@ -39,8 +42,11 @@ export const gitlabRouter = createTRPCRouter({
 		.input(apiFindOneGitlab)
 		.query(async ({ input, ctx }) => {
 			const gitlabProvider = await findGitlabById(input.gitlabId);
-			if (IS_CLOUD && gitlabProvider.gitProvider.adminId !== ctx.user.adminId) {
-				//TODO: Remove this line when the cloud version is ready
+			if (
+				gitlabProvider.gitProvider.organizationId !==
+					ctx.session.activeOrganizationId &&
+				gitlabProvider.gitProvider.userId !== ctx.session.userId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not allowed to access this Gitlab provider",
@@ -55,12 +61,13 @@ export const gitlabRouter = createTRPCRouter({
 			},
 		});
 
-		if (IS_CLOUD) {
-			// TODO: mAyBe a rEfaCtoR 🤫
-			result = result.filter(
-				(provider) => provider.gitProvider.adminId === ctx.user.adminId,
+		result = result.filter((provider) => {
+			return (
+				provider.gitProvider.organizationId ===
+					ctx.session.activeOrganizationId &&
+				provider.gitProvider.userId === ctx.session.userId
 			);
-		}
+		});
 		const filtered = result
 			.filter((provider) => haveGitlabRequirements(provider))
 			.map((provider) => {
@@ -69,6 +76,7 @@ export const gitlabRouter = createTRPCRouter({
 					gitProvider: {
 						...provider.gitProvider,
 					},
+					gitlabUrl: provider.gitlabUrl,
 				};
 			});
 
@@ -78,8 +86,11 @@ export const gitlabRouter = createTRPCRouter({
 		.input(apiFindOneGitlab)
 		.query(async ({ input, ctx }) => {
 			const gitlabProvider = await findGitlabById(input.gitlabId);
-			if (IS_CLOUD && gitlabProvider.gitProvider.adminId !== ctx.user.adminId) {
-				//TODO: Remove this line when the cloud version is ready
+			if (
+				gitlabProvider.gitProvider.organizationId !==
+					ctx.session.activeOrganizationId &&
+				gitlabProvider.gitProvider.userId !== ctx.session.userId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not allowed to access this Gitlab provider",
@@ -92,8 +103,11 @@ export const gitlabRouter = createTRPCRouter({
 		.input(apiFindGitlabBranches)
 		.query(async ({ input, ctx }) => {
 			const gitlabProvider = await findGitlabById(input.gitlabId || "");
-			if (IS_CLOUD && gitlabProvider.gitProvider.adminId !== ctx.user.adminId) {
-				//TODO: Remove this line when the cloud version is ready
+			if (
+				gitlabProvider.gitProvider.organizationId !==
+					ctx.session.activeOrganizationId &&
+				gitlabProvider.gitProvider.userId !== ctx.session.userId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not allowed to access this Gitlab provider",
@@ -107,10 +121,10 @@ export const gitlabRouter = createTRPCRouter({
 			try {
 				const gitlabProvider = await findGitlabById(input.gitlabId || "");
 				if (
-					IS_CLOUD &&
-					gitlabProvider.gitProvider.adminId !== ctx.user.adminId
+					gitlabProvider.gitProvider.organizationId !==
+						ctx.session.activeOrganizationId &&
+					gitlabProvider.gitProvider.userId !== ctx.session.userId
 				) {
-					//TODO: Remove this line when the cloud version is ready
 					throw new TRPCError({
 						code: "UNAUTHORIZED",
 						message: "You are not allowed to access this Gitlab provider",
@@ -130,8 +144,11 @@ export const gitlabRouter = createTRPCRouter({
 		.input(apiUpdateGitlab)
 		.mutation(async ({ input, ctx }) => {
 			const gitlabProvider = await findGitlabById(input.gitlabId);
-			if (IS_CLOUD && gitlabProvider.gitProvider.adminId !== ctx.user.adminId) {
-				//TODO: Remove this line when the cloud version is ready
+			if (
+				gitlabProvider.gitProvider.organizationId !==
+					ctx.session.activeOrganizationId &&
+				gitlabProvider.gitProvider.userId !== ctx.session.userId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not allowed to access this Gitlab provider",
@@ -140,7 +157,7 @@ export const gitlabRouter = createTRPCRouter({
 			if (input.name) {
 				await updateGitProvider(input.gitProviderId, {
 					name: input.name,
-					adminId: ctx.user.adminId,
+					organizationId: ctx.session.activeOrganizationId,
 				});
 
 				await updateGitlab(input.gitlabId, {

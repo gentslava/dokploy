@@ -1,3 +1,11 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { PlusIcon } from "lucide-react";
+import Link from "next/link";
+import { useTranslation } from "next-i18next";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
 import { AlertBlock } from "@/components/shared/alert-block";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,14 +38,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/utils/api";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { PlusIcon } from "lucide-react";
-import { useTranslation } from "next-i18next";
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import { z } from "zod";
 
 const Schema = z.object({
 	name: z.string().min(1, {
@@ -118,7 +118,7 @@ export const HandleServers = ({ serverId }: Props) => {
 			sshKeyId: data.sshKeyId || "",
 			serverId: serverId || "",
 		})
-			.then(async (data) => {
+			.then(async (_data) => {
 				await utils.server.all.invalidate();
 				refetchServer();
 				toast.success(serverId ? "Server Updated" : "Server Created");
@@ -156,8 +156,69 @@ export const HandleServers = ({ serverId }: Props) => {
 						remotely.
 					</DialogDescription>
 				</DialogHeader>
+				<div>
+					<p className="text-primary text-sm font-medium">
+						You will need to purchase or rent a Virtual Private Server (VPS) to
+						proceed, we recommend to use one of these providers since has been
+						heavily tested.
+					</p>
+					<ul className="list-inside list-disc pl-4 text-sm text-muted-foreground mt-4">
+						<li>
+							<a
+								href="https://www.hostinger.com/vps-hosting?REFERRALCODE=1SIUMAURICI97"
+								className="text-link underline"
+							>
+								Hostinger - Get 20% Discount
+							</a>
+						</li>
+						<li>
+							<a
+								href=" https://app.americancloud.com/register?ref=dokploy"
+								className="text-link underline"
+							>
+								American Cloud - Get $20 Credits
+							</a>
+						</li>
+						<li>
+							<a
+								href="https://m.do.co/c/db24efd43f35"
+								className="text-link underline"
+							>
+								DigitalOcean - Get $200 Credits
+							</a>
+						</li>
+						<li>
+							<a
+								href="https://hetzner.cloud/?ref=vou4fhxJ1W2D"
+								className="text-link underline"
+							>
+								Hetzner - Get €20 Credits
+							</a>
+						</li>
+						<li>
+							<a
+								href="https://www.vultr.com/?ref=9679828"
+								className="text-link underline"
+							>
+								Vultr
+							</a>
+						</li>
+						<li>
+							<a
+								href="https://www.linode.com/es/pricing/#compute-shared"
+								className="text-link underline"
+							>
+								Linode
+							</a>
+						</li>
+					</ul>
+					<AlertBlock className="mt-4 px-4">
+						You are free to use whatever provider, but we recommend to use one
+						of the above, to avoid issues.
+					</AlertBlock>
+				</div>
 				{!canCreateMoreServers && (
-					<AlertBlock type="warning">
+					<AlertBlock type="warning" className="mt-4">
 						You cannot create more servers,{" "}
 						<Link href="/dashboard/settings/billing" className="text-primary">
 							Please upgrade your plan

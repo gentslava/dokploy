@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/card";
 import { api } from "@/utils/api";
 import { Rss, Trash2 } from "lucide-react";
-import React from "react";
 import { toast } from "sonner";
 import { HandlePorts } from "./handle-ports";
 interface Props {
@@ -61,7 +60,7 @@ export const ShowPorts = ({ applicationId }: Props) => {
 							{data?.ports.map((port) => (
 								<div key={port.portId}>
 									<div className="flex w-full flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-10 border rounded-lg p-4">
-										<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 flex-col gap-4 sm:gap-8">
+										<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 flex-col gap-4 sm:gap-8">
 											<div className="flex flex-col gap-1">
 												<span className="font-medium">Published Port</span>
 												<span className="text-sm text-muted-foreground">
@@ -69,7 +68,13 @@ export const ShowPorts = ({ applicationId }: Props) => {
 												</span>
 											</div>
 											<div className="flex flex-col gap-1">
-												<span className="font-medium"> Target Port</span>
+												<span className="font-medium">Published Port Mode</span>
+												<span className="text-sm text-muted-foreground">
+													{port?.publishMode?.toUpperCase()}
+												</span>
+											</div>
+											<div className="flex flex-col gap-1">
+												<span className="font-medium">Target Port</span>
 												<span className="text-sm text-muted-foreground">
 													{port.targetPort}
 												</span>

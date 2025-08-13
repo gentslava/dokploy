@@ -35,16 +35,31 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-const schema = z.object({
-	env: z.string(),
-	buildArgs: z.string(),
-	wildcardDomain: z.string(),
-	port: z.number(),
-	previewLimit: z.number(),
-	previewHttps: z.boolean(),
-	previewPath: z.string(),
-	previewCertificateType: z.enum(["letsencrypt", "none"]),
-});
+const schema = z
+	.object({
+		env: z.string(),
+		buildArgs: z.string(),
+		wildcardDomain: z.string(),
+		port: z.number(),
+		previewLimit: z.number(),
+		previewHttps: z.boolean(),
+		previewPath: z.string(),
+		previewCertificateType: z.enum(["letsencrypt", "none", "custom"]),
+		previewCustomCertResolver: z.string().optional(),
+		previewRequireCollaboratorPermissions: z.boolean(),
+	})
+	.superRefine((input, ctx) => {
+		if (
+			input.previewCertificateType === "custom" &&
+			!input.previewCustomCertResolver
+		) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["previewCustomCertResolver"],
+				message: "Required",
+			});
+		}
+	});
 
 type Schema = z.infer<typeof schema>;
 
@@ -69,6 +84,7 @@ export const ShowPreviewSettings = ({ applicationId }: Props) => {
 			previewHttps: false,
 			previewPath: "/",
 			previewCertificateType: "none",
+			previewRequireCollaboratorPermissions: true,
 		},
 		resolver: zodResolver(schema),
 	});
@@ -90,6 +106,9 @@ export const ShowPreviewSettings = ({ applicationId }: Props) => {
 				previewHttps: data.previewHttps || false,
 				previewPath: data.previewPath || "/",
 				previewCertificateType: data.previewCertificateType || "none",
+				previewCustomCertResolver: data.previewCustomCertResolver || "",
+				previewRequireCollaboratorPermissions:
+					data.previewRequireCollaboratorPermissions || true,
 			});
 		}
 	}, [data]);
@@ -105,6 +124,9 @@ export const ShowPreviewSettings = ({ applicationId }: Props) => {
 			previewHttps: formData.previewHttps,
 			previewPath: formData.previewPath,
 			previewCertificateType: formData.previewCertificateType,
+			previewCustomCertResolver: formData.previewCustomCertResolver,
+			previewRequireCollaboratorPermissions:
+				formData.previewRequireCollaboratorPermissions,
 		})
 			.then(() => {
 				toast.success("Preview Deployments settings updated");
@@ -122,7 +144,7 @@ export const ShowPreviewSettings = ({ applicationId }: Props) => {
 						Configure
 					</Button>
 				</DialogTrigger>
-				<DialogContent className="max-h-screen overflow-y-auto sm:max-w-5xl w-full">
+				<DialogContent className="sm:max-w-5xl w-full">
 					<DialogHeader>
 						<DialogTitle>Preview Deployment Settings</DialogTitle>
 						<DialogDescription>
@@ -184,10 +206,6 @@ export const ShowPreviewSettings = ({ applicationId }: Props) => {
 										render={({ field }) => (
 											<FormItem>
 												<FormLabel>Preview Limit</FormLabel>
-												{/* <FormDescription>
-													Set the limit of preview deployments that can be
-													created for this app.
-												</FormDescription> */}
 												<FormControl>
 													<NumberInput placeholder="3000" {...field} />
 												</FormControl>
@@ -238,8 +256,28 @@ export const ShowPreviewSettings = ({ applicationId }: Props) => {
 															<SelectItem value={"letsencrypt"}>
 																Let's Encrypt
 															</SelectItem>
+															<SelectItem value={"custom"}>Custom</SelectItem>
 														</SelectContent>
 													</Select>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+									)}
+
+									{form.watch("previewCertificateType") === "custom" && (
+										<FormField
+											control={form.control}
+											name="previewCustomCertResolver"
+											render={({ field }) => (
+												<FormItem>
+													<FormLabel>Certificate Provider</FormLabel>
+													<FormControl>
+														<Input
+															placeholder="my-custom-resolver"
+															{...field}
+														/>
+													</FormControl>
 													<FormMessage />
 												</FormItem>
 											)}
@@ -266,7 +304,11 @@ export const ShowPreviewSettings = ({ applicationId }: Props) => {
 												})
 													.then(() => {
 														refetch();
-														toast.success("Preview deployments enabled");
+														toast.success(
+															checked
+																? "Preview deployments enabled"
+																: "Preview deployments disabled",
+														);
 													})
 													.catch((error) => {
 														toast.error(error.message);
@@ -276,10 +318,41 @@ export const ShowPreviewSettings = ({ applicationId }: Props) => {
 									</div>
 								</div>
 
+								<div className="grid gap-4 lg:grid-cols-2">
+									<FormField
+										control={form.control}
+										name="previewRequireCollaboratorPermissions"
+										render={({ field }) => (
+											<FormItem className="flex flex-row items-center justify-between p-3 mt-4 border rounded-lg shadow-sm col-span-2">
+												<div className="space-y-0.5">
+													<FormLabel>
+														Require Collaborator Permissions
+													</FormLabel>
+													<FormDescription>
+														Require collaborator permissions to preview
+														deployments, valid roles are:
+														<ul>
+															<li>Admin</li>
+															<li>Maintain</li>
+															<li>Write</li>
+														</ul>
+													</FormDescription>
+												</div>
+												<FormControl>
+													<Switch
+														checked={field.value}
+														onCheckedChange={field.onChange}
+													/>
+												</FormControl>
+											</FormItem>
+										)}
+									/>
+								</div>
+
 								<FormField
 									control={form.control}
 									name="env"
-									render={({ field }) => (
+									render={() => (
 										<FormItem>
 											<FormControl>
 												<Secrets

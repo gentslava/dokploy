@@ -1,16 +1,35 @@
+import { validateRequest } from "@dokploy/server/lib/auth";
+import { createServerSideHelpers } from "@trpc/react-query/server";
+import copy from "copy-to-clipboard";
+import { CircuitBoard, HelpCircle, ServerOff } from "lucide-react";
+import type {
+	GetServerSidePropsContext,
+	InferGetServerSidePropsType,
+} from "next";
+import Head from "next/head";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import { type ReactElement, useEffect, useState } from "react";
+import { toast } from "sonner";
+import superjson from "superjson";
+import { ShowImport } from "@/components/dashboard/application/advanced/import/show-import";
 import { ShowVolumes } from "@/components/dashboard/application/advanced/volumes/show-volumes";
+import { ShowDeployments } from "@/components/dashboard/application/deployments/show-deployments";
+import { ShowDomains } from "@/components/dashboard/application/domains/show-domains";
 import { ShowEnvironment } from "@/components/dashboard/application/environment/show-enviroment";
+import { ShowSchedules } from "@/components/dashboard/application/schedules/show-schedules";
+import { ShowVolumeBackups } from "@/components/dashboard/application/volume-backups/show-volume-backups";
 import { AddCommandCompose } from "@/components/dashboard/compose/advanced/add-command";
+import { IsolatedDeploymentTab } from "@/components/dashboard/compose/advanced/add-isolation";
 import { DeleteService } from "@/components/dashboard/compose/delete-service";
-import { ShowDeploymentsCompose } from "@/components/dashboard/compose/deployments/show-deployments-compose";
-import { ShowDomainsCompose } from "@/components/dashboard/compose/domains/show-domains";
 import { ShowGeneralCompose } from "@/components/dashboard/compose/general/show";
 import { ShowDockerLogsCompose } from "@/components/dashboard/compose/logs/show";
 import { ShowDockerLogsStack } from "@/components/dashboard/compose/logs/show-stack";
 import { UpdateCompose } from "@/components/dashboard/compose/update-compose";
+import { ShowBackups } from "@/components/dashboard/database/backups/show-backups";
 import { ComposeFreeMonitoring } from "@/components/dashboard/monitoring/free/container/show-free-compose-monitoring";
 import { ComposePaidMonitoring } from "@/components/dashboard/monitoring/paid/container/show-paid-compose-monitoring";
-import { ProjectLayout } from "@/components/layouts/project-layout";
+import { DashboardLayout } from "@/components/layouts/dashboard-layout";
 import { BreadcrumbSidebar } from "@/components/shared/breadcrumb-sidebar";
 import { StatusTooltip } from "@/components/shared/status-tooltip";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +41,6 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
 	Tooltip,
@@ -30,24 +48,8 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 import { appRouter } from "@/server/api/root";
 import { api } from "@/utils/api";
-import { validateRequest } from "@dokploy/server";
-import { createServerSideHelpers } from "@trpc/react-query/server";
-import copy from "copy-to-clipboard";
-import { CircuitBoard, ServerOff } from "lucide-react";
-import { HelpCircle } from "lucide-react";
-import type {
-	GetServerSidePropsContext,
-	InferGetServerSidePropsType,
-} from "next";
-import Head from "next/head";
-import Link from "next/link";
-import { useRouter } from "next/router";
-import React, { useState, useEffect, type ReactElement } from "react";
-import { toast } from "sonner";
-import superjson from "superjson";
 
 type TabState =
 	| "projects"
@@ -55,12 +57,13 @@ type TabState =
 	| "advanced"
 	| "deployments"
 	| "domains"
-	| "monitoring";
+	| "monitoring"
+	| "volumeBackups";
 
 const Service = (
 	props: InferGetServerSidePropsType<typeof getServerSideProps>,
 ) => {
-	const [toggleMonitoring, setToggleMonitoring] = useState(false);
+	const [_toggleMonitoring, _setToggleMonitoring] = useState(false);
 	const { composeId, activeTab } = props;
 	const router = useRouter();
 	const { projectId } = router.query;
@@ -72,24 +75,10 @@ const Service = (
 		}
 	}, [router.query.tab]);
 
-	const { data } = api.compose.one.useQuery(
-		{ composeId },
-		{
-			refetchInterval: 5000,
-		},
-	);
+	const { data } = api.compose.one.useQuery({ composeId });
 
-	const { data: auth } = api.auth.get.useQuery();
-	const { data: monitoring } = api.admin.getMetricsToken.useQuery();
+	const { data: auth } = api.user.get.useQuery();
 	const { data: isCloud } = api.settings.isCloud.useQuery();
-	const { data: user } = api.user.byAuthId.useQuery(
-		{
-			authId: auth?.id || "",
-		},
-		{
-			enabled: !!auth?.id && auth?.rol === "user",
-		},
-	);
 
 	return (
 		<div className="pb-10">
@@ -112,14 +101,14 @@ const Service = (
 				</title>
 			</Head>
 			<div className="w-full">
-				<Card className="h-full bg-sidebar  p-2.5 rounded-xl w-full">
+				<Card className="h-full bg-sidebar p-2.5 rounded-xl w-full">
 					<div className="rounded-xl bg-background shadow-md ">
 						<div className="flex flex-col gap-4">
 							<CardHeader className="flex flex-row justify-between items-center">
 								<div className="flex flex-col">
 									<CardTitle className="text-xl flex flex-row gap-2">
 										<div className="relative flex flex-row gap-4">
-											<div className="absolute -right-1  -top-2">
+											<div className="absolute -right-1 -top-2">
 												<StatusTooltip status={data?.composeStatus} />
 											</div>
 
@@ -181,7 +170,7 @@ const Service = (
 									<div className="flex flex-row gap-2 justify-end">
 										<UpdateCompose composeId={composeId} />
 
-										{(auth?.rol === "admin" || user?.canDeleteServices) && (
+										{(auth?.role === "owner" || auth?.canDeleteServices) && (
 											<DeleteService id={composeId} type="compose" />
 										)}
 									</div>
@@ -221,25 +210,21 @@ const Service = (
 										router.push(newPath);
 									}}
 								>
-									<div className="flex flex-row items-center justify-between  w-full gap-4">
-										<TabsList
-											className={cn(
-												"md:grid md:w-fit max-md:overflow-y-scroll justify-start",
-												isCloud && data?.serverId
-													? "md:grid-cols-7"
-													: data?.serverId
-														? "md:grid-cols-6"
-														: "md:grid-cols-7",
-											)}
-										>
+									<div className="flex flex-row items-center w-full overflow-auto">
+										<TabsList className="flex gap-8 max-md:gap-4 justify-start">
 											<TabsTrigger value="general">General</TabsTrigger>
 											<TabsTrigger value="environment">Environment</TabsTrigger>
+											<TabsTrigger value="domains">Domains</TabsTrigger>
+											<TabsTrigger value="deployments">Deployments</TabsTrigger>
+											<TabsTrigger value="backups">Backups</TabsTrigger>
+											<TabsTrigger value="schedules">Schedules</TabsTrigger>
+											<TabsTrigger value="volumeBackups">
+												Volume Backups
+											</TabsTrigger>
+											<TabsTrigger value="logs">Logs</TabsTrigger>
 											{((data?.serverId && isCloud) || !data?.server) && (
 												<TabsTrigger value="monitoring">Monitoring</TabsTrigger>
 											)}
-											<TabsTrigger value="logs">Logs</TabsTrigger>
-											<TabsTrigger value="deployments">Deployments</TabsTrigger>
-											<TabsTrigger value="domains">Domains</TabsTrigger>
 											<TabsTrigger value="advanced">Advanced</TabsTrigger>
 										</TabsList>
 									</div>
@@ -254,7 +239,26 @@ const Service = (
 											<ShowEnvironment id={composeId} type="compose" />
 										</div>
 									</TabsContent>
+									<TabsContent value="backups">
+										<div className="flex flex-col gap-4 pt-2.5">
+											<ShowBackups id={composeId} backupType="compose" />
+										</div>
+									</TabsContent>
 
+									<TabsContent value="schedules">
+										<div className="flex flex-col gap-4 pt-2.5">
+											<ShowSchedules id={composeId} scheduleType="compose" />
+										</div>
+									</TabsContent>
+									<TabsContent value="volumeBackups">
+										<div className="flex flex-col gap-4 pt-2.5">
+											<ShowVolumeBackups
+												id={composeId}
+												type="compose"
+												serverId={data?.serverId || ""}
+											/>
+										</div>
+									</TabsContent>
 									<TabsContent value="monitoring">
 										<div className="pt-2.5">
 											<div className="flex flex-col border rounded-lg ">
@@ -325,21 +329,29 @@ const Service = (
 										</div>
 									</TabsContent>
 
-									<TabsContent value="deployments">
-										<div className="flex flex-col gap-4 pt-2.5">
-											<ShowDeploymentsCompose composeId={composeId} />
+									<TabsContent value="deployments" className="w-full pt-2.5">
+										<div className="flex flex-col gap-4 border rounded-lg">
+											<ShowDeployments
+												id={composeId}
+												type="compose"
+												serverId={data?.serverId || ""}
+												refreshToken={data?.refreshToken || ""}
+											/>
 										</div>
 									</TabsContent>
 
 									<TabsContent value="domains">
 										<div className="flex flex-col gap-4 pt-2.5">
-											<ShowDomainsCompose composeId={composeId} />
+											<ShowDomains id={composeId} type="compose" />
 										</div>
 									</TabsContent>
+
 									<TabsContent value="advanced">
 										<div className="flex flex-col gap-4 pt-2.5">
 											<AddCommandCompose composeId={composeId} />
 											<ShowVolumes id={composeId} type="compose" />
+											<ShowImport composeId={composeId} />
+											<IsolatedDeploymentTab composeId={composeId} />
 										</div>
 									</TabsContent>
 								</Tabs>
@@ -354,7 +366,7 @@ const Service = (
 
 export default Service;
 Service.getLayout = (page: ReactElement) => {
-	return <ProjectLayout>{page}</ProjectLayout>;
+	return <DashboardLayout>{page}</DashboardLayout>;
 };
 
 export async function getServerSideProps(
@@ -366,7 +378,7 @@ export async function getServerSideProps(
 	const { query, params, req, res } = ctx;
 
 	const activeTab = query.tab;
-	const { user, session } = await validateRequest(req, res);
+	const { user, session } = await validateRequest(req);
 	if (!user) {
 		return {
 			redirect: {
@@ -382,8 +394,8 @@ export async function getServerSideProps(
 			req: req as any,
 			res: res as any,
 			db: null as any,
-			session: session,
-			user: user,
+			session: session as any,
+			user: user as any,
 		},
 		transformer: superjson,
 	});
@@ -402,7 +414,7 @@ export async function getServerSideProps(
 					activeTab: (activeTab || "general") as TabState,
 				},
 			};
-		} catch (error) {
+		} catch {
 			return {
 				redirect: {
 					permanent: false,

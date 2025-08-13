@@ -17,7 +17,7 @@ interface Props {
 }
 
 export const ShowNodeConfig = ({ nodeId, serverId }: Props) => {
-	const { data, isLoading } = api.swarm.getNodeInfo.useQuery({
+	const { data } = api.swarm.getNodeInfo.useQuery({
 		nodeId,
 		serverId,
 	});
@@ -29,7 +29,7 @@ export const ShowNodeConfig = ({ nodeId, serverId }: Props) => {
 					Config
 				</Button>
 			</DialogTrigger>
-			<DialogContent className={"sm:max-w-5xl overflow-y-auto max-h-screen"}>
+			<DialogContent className={"sm:max-w-5xl"}>
 				<DialogHeader>
 					<DialogTitle>Node Config</DialogTitle>
 					<DialogDescription>

@@ -2,7 +2,8 @@ name: Dokploy Docker Build
 
 on:
   push:
-    branches: [master, main, canary, "feat/monitoring"]
+    branches: [master, main, canary]
+  workflow_dispatch:
 
 env:
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/dokploy

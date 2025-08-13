@@ -2,7 +2,6 @@ import {
 	type BackupScheduleList,
 	IS_CLOUD,
 	removeScheduleBackup,
-	scheduleBackup,
 } from "@dokploy/server/index";
 
 type QueueJob =
@@ -15,6 +14,16 @@ type QueueJob =
 			type: "server";
 			cronSchedule: string;
 			serverId: string;
+	  }
+	| {
+			type: "schedule";
+			cronSchedule: string;
+			scheduleId: string;
+	  }
+	| {
+			type: "volume-backup";
+			cronSchedule: string;
+			volumeBackupId: string;
 	  };
 export const schedule = async (job: QueueJob) => {
 	try {

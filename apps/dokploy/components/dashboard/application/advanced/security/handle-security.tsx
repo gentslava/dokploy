@@ -114,7 +114,7 @@ export const HandleSecurity = ({
 					<Button>{children}</Button>
 				)}
 			</DialogTrigger>
-			<DialogContent className="max-h-screen  overflow-y-auto sm:max-w-lg">
+			<DialogContent className="sm:max-w-lg">
 				<DialogHeader>
 					<DialogTitle>Security</DialogTitle>
 					<DialogDescription>
@@ -151,7 +151,7 @@ export const HandleSecurity = ({
 									<FormItem>
 										<FormLabel>Password</FormLabel>
 										<FormControl>
-											<Input placeholder="test" {...field} />
+											<Input placeholder="test" type="password" {...field} />
 										</FormControl>
 
 										<FormMessage />

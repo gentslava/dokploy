@@ -56,12 +56,12 @@ export const ShowNotifications = () => {
 								) : (
 									<div className="flex flex-col gap-4 min-h-[25vh]">
 										<div className="flex flex-col gap-4 rounded-lg ">
-											{data?.map((notification, index) => (
+											{data?.map((notification, _index) => (
 												<div
 													key={notification.notificationId}
 													className="flex items-center justify-between bg-sidebar p-1 w-full rounded-lg"
 												>
-													<div className="flex items-center justify-between  p-3.5 rounded-lg bg-background border  w-full">
+													<div className="flex items-center justify-between p-3.5 rounded-lg bg-background border  w-full">
 														<span className="text-sm flex flex-row items-center gap-4">
 															{notification.notificationType === "slack" && (
 																<div className="flex  items-center justify-center rounded-lg">

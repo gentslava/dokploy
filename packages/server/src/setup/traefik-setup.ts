@@ -1,9 +1,8 @@
 import { chmodSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { ContainerTaskSpec, CreateServiceOptions } from "dockerode";
+import type { ContainerCreateOptions, CreateServiceOptions } from "dockerode";
 import { dump } from "js-yaml";
 import { paths } from "../constants";
-import { pullImage, pullRemoteImage } from "../utils/docker/utils";
 import { getRemoteDocker } from "../utils/servers/remote-docker";
 import type { FileConfig } from "../utils/traefik/file-types";
 import type { MainTraefikConfig } from "../utils/traefik/types";
@@ -12,21 +11,21 @@ export const TRAEFIK_SSL_PORT =
 	Number.parseInt(process.env.TRAEFIK_SSL_PORT!, 10) || 443;
 export const TRAEFIK_PORT =
 	Number.parseInt(process.env.TRAEFIK_PORT!, 10) || 80;
+export const TRAEFIK_HTTP3_PORT =
+	Number.parseInt(process.env.TRAEFIK_HTTP3_PORT!, 10) || 443;
 export const TRAEFIK_VERSION = process.env.TRAEFIK_VERSION || "3.1.2";
 
-interface TraefikOptions {
-	enableDashboard?: boolean;
+export interface TraefikOptions {
 	env?: string[];
 	serverId?: string;
 	additionalPorts?: {
 		targetPort: number;
 		publishedPort: number;
-		publishMode?: "ingress" | "host";
+		protocol?: string;
 	}[];
 }
 
-export const initializeTraefik = async ({
-	enableDashboard = false,
+export const initializeStandaloneTraefik = async ({
 	env,
 	serverId,
 	additionalPorts = [],
@@ -34,8 +33,83 @@ export const initializeTraefik = async ({
 	const { MAIN_TRAEFIK_PATH, DYNAMIC_TRAEFIK_PATH } = paths(!!serverId);
 	const imageName = `traefik:v${TRAEFIK_VERSION}`;
 	const containerName = "dokploy-traefik";
+
+	const exposedPorts: Record<string, {}> = {
+		[`${TRAEFIK_PORT}/tcp`]: {},
+		[`${TRAEFIK_SSL_PORT}/tcp`]: {},
+		[`${TRAEFIK_HTTP3_PORT}/udp`]: {},
+	};
+
+	const portBindings: Record<string, Array<{ HostPort: string }>> = {
+		[`${TRAEFIK_PORT}/tcp`]: [{ HostPort: TRAEFIK_PORT.toString() }],
+		[`${TRAEFIK_SSL_PORT}/tcp`]: [{ HostPort: TRAEFIK_SSL_PORT.toString() }],
+		[`${TRAEFIK_HTTP3_PORT}/udp`]: [
+			{ HostPort: TRAEFIK_HTTP3_PORT.toString() },
+		],
+	};
+
+	const enableDashboard = additionalPorts.some(
+		(port) => port.targetPort === 8080,
+	);
+
+	if (enableDashboard) {
+		exposedPorts["8080/tcp"] = {};
+		portBindings["8080/tcp"] = [{ HostPort: "8080" }];
+	}
+
+	for (const port of additionalPorts) {
+		const portKey = `${port.targetPort}/${port.protocol ?? "tcp"}`;
+		exposedPorts[portKey] = {};
+		portBindings[portKey] = [{ HostPort: port.publishedPort.toString() }];
+	}
+
+	const settings: ContainerCreateOptions = {
+		name: containerName,
+		Image: imageName,
+		NetworkingConfig: {
+			EndpointsConfig: {
+				"dokploy-network": {},
+			},
+		},
+		ExposedPorts: exposedPorts,
+		HostConfig: {
+			RestartPolicy: {
+				Name: "always",
+			},
+			Binds: [
+				`${MAIN_TRAEFIK_PATH}/traefik.yml:/etc/traefik/traefik.yml`,
+				`${DYNAMIC_TRAEFIK_PATH}:/etc/dokploy/traefik/dynamic`,
+				"/var/run/docker.sock:/var/run/docker.sock",
+			],
+			PortBindings: portBindings,
+		},
+		Env: env,
+	};
+
+	const docker = await getRemoteDocker(serverId);
+	try {
+		const container = docker.getContainer(containerName);
+		await container.remove({ force: true });
+		await new Promise((resolve) => setTimeout(resolve, 5000));
+	} catch {}
+
+	await docker.createContainer(settings);
+	const newContainer = docker.getContainer(containerName);
+	await newContainer.start();
+	console.log("Traefik Started ✅");
+};
+
+export const initializeTraefikService = async ({
+	env,
+	additionalPorts = [],
+	serverId,
+}: TraefikOptions) => {
+	const { MAIN_TRAEFIK_PATH, DYNAMIC_TRAEFIK_PATH } = paths(!!serverId);
+	const imageName = `traefik:v${TRAEFIK_VERSION}`;
+	const appName = "dokploy-traefik";
+
 	const settings: CreateServiceOptions = {
-		Name: containerName,
+		Name: appName,
 		TaskTemplate: {
 			ContainerSpec: {
 				Image: imageName,
@@ -74,62 +148,47 @@ export const initializeTraefik = async ({
 					TargetPort: 443,
 					PublishedPort: TRAEFIK_SSL_PORT,
 					PublishMode: "host",
+					Protocol: "tcp",
+				},
+				{
+					TargetPort: 443,
+					PublishedPort: TRAEFIK_SSL_PORT,
+					PublishMode: "host",
+					Protocol: "udp",
 				},
 				{
 					TargetPort: 80,
 					PublishedPort: TRAEFIK_PORT,
 					PublishMode: "host",
+					Protocol: "tcp",
 				},
-				...(enableDashboard
-					? [
-							{
-								TargetPort: 8080,
-								PublishedPort: 8080,
-								PublishMode: "host" as const,
-							},
-						]
-					: []),
+
 				...additionalPorts.map((port) => ({
 					TargetPort: port.targetPort,
 					PublishedPort: port.publishedPort,
-					PublishMode: port.publishMode || ("host" as const),
+					Protocol: port.protocol as "tcp" | "udp" | "sctp" | undefined,
+					PublishMode: "host" as const,
 				})),
 			],
 		},
 	};
 	const docker = await getRemoteDocker(serverId);
 	try {
-		if (serverId) {
-			await pullRemoteImage(imageName, serverId);
-		} else {
-			await pullImage(imageName);
-		}
-
-		const service = docker.getService(containerName);
+		const service = docker.getService(appName);
 		const inspect = await service.inspect();
 
-		const existingEnv = inspect.Spec.TaskTemplate.ContainerSpec.Env || [];
-		const updatedEnv = !env ? existingEnv : env;
-
-		const updatedSettings = {
+		await service.update({
+			version: Number.parseInt(inspect.Version.Index),
 			...settings,
 			TaskTemplate: {
 				...settings.TaskTemplate,
-				ContainerSpec: {
-					...(settings?.TaskTemplate as ContainerTaskSpec).ContainerSpec,
-					Env: updatedEnv,
-				},
+				ForceUpdate: inspect.Spec.TaskTemplate.ForceUpdate + 1,
 			},
-		};
-		await service.update({
-			version: Number.parseInt(inspect.Version.Index),
-			...updatedSettings,
 		});
-
-		console.log("Traefik Started ✅");
-	} catch (error) {
+		console.log("Traefik Updated ✅");
+	} catch {
 		await docker.createService(settings);
-		console.log("Traefik Not Found: Starting ✅");
+		console.log("Traefik Started ✅");
 	}
 };
 
@@ -175,6 +234,9 @@ export const createDefaultServerTraefikConfig = () => {
 
 export const getDefaultTraefikConfig = () => {
 	const configObject: MainTraefikConfig = {
+		global: {
+			sendAnonymousUsage: false,
+		},
 		providers: {
 			...(process.env.NODE_ENV === "development"
 				? {
@@ -205,6 +267,9 @@ export const getDefaultTraefikConfig = () => {
 			},
 			websecure: {
 				address: `:${TRAEFIK_SSL_PORT}`,
+				http3: {
+					advertisedPort: TRAEFIK_HTTP3_PORT,
+				},
 				...(process.env.NODE_ENV === "production" && {
 					http: {
 						tls: {
@@ -260,6 +325,9 @@ export const getDefaultServerTraefikConfig = () => {
 			},
 			websecure: {
 				address: `:${TRAEFIK_SSL_PORT}`,
+				http3: {
+					advertisedPort: TRAEFIK_HTTP3_PORT,
+				},
 				http: {
 					tls: {
 						certResolver: "letsencrypt",

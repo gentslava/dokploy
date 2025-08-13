@@ -1,3 +1,9 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
 import { AlertBlock } from "@/components/shared/alert-block";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,12 +28,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/utils/api";
-import { zodResolver } from "@hookform/resolvers/zod";
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import { z } from "zod";
 
 const Schema = z.object({
 	name: z.string().min(1, {
@@ -52,10 +52,10 @@ interface Props {
 
 export const CreateServer = ({ stepper }: Props) => {
 	const { data: sshKeys } = api.sshKey.all.useQuery();
-	const [isOpen, setIsOpen] = useState(false);
+	const [isOpen, _setIsOpen] = useState(false);
 	const { data: canCreateMoreServers, refetch } =
 		api.stripe.canCreateMoreServers.useQuery();
-	const { mutateAsync, error, isError } = api.server.create.useMutation();
+	const { mutateAsync } = api.server.create.useMutation();
 	const cloudSSHKey = sshKeys?.find(
 		(sshKey) => sshKey.name === "dokploy-cloud-ssh-key",
 	);
@@ -96,7 +96,7 @@ export const CreateServer = ({ stepper }: Props) => {
 			username: data.username || "root",
 			sshKeyId: data.sshKeyId || "",
 		})
-			.then(async (data) => {
+			.then(async (_data) => {
 				toast.success("Server Created");
 				stepper.next();
 			})
@@ -108,7 +108,7 @@ export const CreateServer = ({ stepper }: Props) => {
 		<Card className="bg-background flex flex-col gap-4">
 			<div className="flex flex-col gap-2 pt-5 px-4">
 				{!canCreateMoreServers && (
-					<AlertBlock type="warning">
+					<AlertBlock type="warning" className="mt-2">
 						You cannot create more servers,{" "}
 						<Link href="/dashboard/settings/billing" className="text-primary">
 							Please upgrade your plan
@@ -265,7 +265,7 @@ export const CreateServer = ({ stepper }: Props) => {
 						/>
 					</form>
 
-					<DialogFooter className="pt-5">
+					<DialogFooter>
 						<Button
 							isLoading={form.formState.isSubmitting}
 							disabled={!canCreateMoreServers}

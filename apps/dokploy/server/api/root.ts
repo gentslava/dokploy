@@ -1,6 +1,6 @@
-import { authRouter } from "@/server/api/routers/auth";
 import { createTRPCRouter } from "../api/trpc";
 import { adminRouter } from "./routers/admin";
+import { aiRouter } from "./routers/ai";
 import { applicationRouter } from "./routers/application";
 import { backupRouter } from "./routers/backup";
 import { bitbucketRouter } from "./routers/bitbucket";
@@ -12,6 +12,7 @@ import { destinationRouter } from "./routers/destination";
 import { dockerRouter } from "./routers/docker";
 import { domainRouter } from "./routers/domain";
 import { gitProviderRouter } from "./routers/git-provider";
+import { giteaRouter } from "./routers/gitea";
 import { githubRouter } from "./routers/github";
 import { gitlabRouter } from "./routers/gitlab";
 import { mariadbRouter } from "./routers/mariadb";
@@ -19,6 +20,7 @@ import { mongoRouter } from "./routers/mongo";
 import { mountRouter } from "./routers/mount";
 import { mysqlRouter } from "./routers/mysql";
 import { notificationRouter } from "./routers/notification";
+import { organizationRouter } from "./routers/organization";
 import { portRouter } from "./routers/port";
 import { postgresRouter } from "./routers/postgres";
 import { previewDeploymentRouter } from "./routers/preview-deployment";
@@ -26,6 +28,8 @@ import { projectRouter } from "./routers/project";
 import { redirectsRouter } from "./routers/redirects";
 import { redisRouter } from "./routers/redis";
 import { registryRouter } from "./routers/registry";
+import { rollbackRouter } from "./routers/rollbacks";
+import { scheduleRouter } from "./routers/schedule";
 import { securityRouter } from "./routers/security";
 import { serverRouter } from "./routers/server";
 import { settingsRouter } from "./routers/settings";
@@ -33,7 +37,7 @@ import { sshRouter } from "./routers/ssh-key";
 import { stripeRouter } from "./routers/stripe";
 import { swarmRouter } from "./routers/swarm";
 import { userRouter } from "./routers/user";
-
+import { volumeBackupsRouter } from "./routers/volume-backups";
 /**
  * This is the primary router for your server.
  *
@@ -43,7 +47,6 @@ import { userRouter } from "./routers/user";
 export const appRouter = createTRPCRouter({
 	admin: adminRouter,
 	docker: dockerRouter,
-	auth: authRouter,
 	project: projectRouter,
 	application: applicationRouter,
 	mysql: mysqlRouter,
@@ -69,12 +72,18 @@ export const appRouter = createTRPCRouter({
 	notification: notificationRouter,
 	sshKey: sshRouter,
 	gitProvider: gitProviderRouter,
+	gitea: giteaRouter,
 	bitbucket: bitbucketRouter,
 	gitlab: gitlabRouter,
 	github: githubRouter,
 	server: serverRouter,
 	stripe: stripeRouter,
 	swarm: swarmRouter,
+	ai: aiRouter,
+	organization: organizationRouter,
+	schedule: scheduleRouter,
+	rollback: rollbackRouter,
+	volumeBackups: volumeBackupsRouter,
 });
 
 // export type definition of API

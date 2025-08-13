@@ -18,7 +18,7 @@ interface Props {
 	applicationType: string;
 	errorMessage: string;
 	buildLink: string;
-	adminId: string;
+	organizationId: string;
 }
 
 export const sendBuildErrorNotifications = async ({
@@ -27,14 +27,14 @@ export const sendBuildErrorNotifications = async ({
 	applicationType,
 	errorMessage,
 	buildLink,
-	adminId,
+	organizationId,
 }: Props) => {
 	const date = new Date();
 	const unixDate = ~~(Number(date) / 1000);
 	const notificationList = await db.query.notifications.findMany({
 		where: and(
 			eq(notifications.appBuildError, true),
-			eq(notifications.adminId, adminId),
+			eq(notifications.organizationId, organizationId),
 		),
 		with: {
 			email: true,
@@ -65,6 +65,8 @@ export const sendBuildErrorNotifications = async ({
 			const decorate = (decoration: string, text: string) =>
 				`${discord.decoration ? decoration : ""} ${text}`.trim();
 
+			const limitCharacter = 800;
+			const truncatedErrorMessage = errorMessage.substring(0, limitCharacter);
 			await sendDiscordNotification(discord, {
 				title: decorate(">", "`⚠️` Build Failed"),
 				color: 0xed4245,
@@ -101,7 +103,7 @@ export const sendBuildErrorNotifications = async ({
 					},
 					{
 						name: decorate("`⚠️`", "Error Message"),
-						value: `\`\`\`${errorMessage}\`\`\``,
+						value: `\`\`\`${truncatedErrorMessage}\`\`\``,
 					},
 					{
 						name: decorate("`🧷`", "Build Link"),

@@ -13,6 +13,7 @@ import { z } from "zod";
 import { bitbucket } from "./bitbucket";
 import { deployments } from "./deployment";
 import { domains } from "./domain";
+import { gitea } from "./gitea";
 import { github } from "./github";
 import { gitlab } from "./gitlab";
 import { mounts } from "./mount";
@@ -23,16 +24,34 @@ import { redirects } from "./redirects";
 import { registry } from "./registry";
 import { security } from "./security";
 import { server } from "./server";
-import { applicationStatus, certificateType } from "./shared";
+import {
+	applicationStatus,
+	certificateType,
+	type HealthCheckSwarm,
+	HealthCheckSwarmSchema,
+	type LabelsSwarm,
+	LabelsSwarmSchema,
+	type NetworkSwarm,
+	NetworkSwarmSchema,
+	type PlacementSwarm,
+	PlacementSwarmSchema,
+	type RestartPolicySwarm,
+	RestartPolicySwarmSchema,
+	type ServiceModeSwarm,
+	ServiceModeSwarmSchema,
+	triggerType,
+	type UpdateConfigSwarm,
+	UpdateConfigSwarmSchema,
+} from "./shared";
 import { sshKeys } from "./ssh-key";
 import { generateAppName } from "./utils";
-
 export const sourceType = pgEnum("sourceType", [
 	"docker",
 	"git",
 	"github",
 	"gitlab",
 	"bitbucket",
+	"gitea",
 	"drop",
 ]);
 
@@ -42,66 +61,8 @@ export const buildType = pgEnum("buildType", [
 	"paketo_buildpacks",
 	"nixpacks",
 	"static",
+	"railpack",
 ]);
-
-// TODO: refactor this types
-export interface HealthCheckSwarm {
-	Test?: string[] | undefined;
-	Interval?: number | undefined;
-	Timeout?: number | undefined;
-	StartPeriod?: number | undefined;
-	Retries?: number | undefined;
-}
-
-export interface RestartPolicySwarm {
-	Condition?: string | undefined;
-	Delay?: number | undefined;
-	MaxAttempts?: number | undefined;
-	Window?: number | undefined;
-}
-
-export interface PlacementSwarm {
-	Constraints?: string[] | undefined;
-	Preferences?: Array<{ Spread: { SpreadDescriptor: string } }> | undefined;
-	MaxReplicas?: number | undefined;
-	Platforms?:
-		| Array<{
-				Architecture: string;
-				OS: string;
-		  }>
-		| undefined;
-}
-
-export interface UpdateConfigSwarm {
-	Parallelism: number;
-	Delay?: number | undefined;
-	FailureAction?: string | undefined;
-	Monitor?: number | undefined;
-	MaxFailureRatio?: number | undefined;
-	Order: string;
-}
-
-export interface ServiceModeSwarm {
-	Replicated?: { Replicas?: number | undefined } | undefined;
-	Global?: {} | undefined;
-	ReplicatedJob?:
-		| {
-				MaxConcurrent?: number | undefined;
-				TotalCompletions?: number | undefined;
-		  }
-		| undefined;
-	GlobalJob?: {} | undefined;
-}
-
-export interface NetworkSwarm {
-	Target?: string | undefined;
-	Aliases?: string[] | undefined;
-	DriverOpts?: { [key: string]: string } | undefined;
-}
-
-export interface LabelsSwarm {
-	[name: string]: string;
-}
 
 export const applications = pgTable("application", {
 	applicationId: text("applicationId")
@@ -116,6 +77,7 @@ export const applications = pgTable("application", {
 	description: text("description"),
 	env: text("env"),
 	previewEnv: text("previewEnv"),
+	watchPaths: text("watchPaths").array(),
 	previewBuildArgs: text("previewBuildArgs"),
 	previewWildcard: text("previewWildcard"),
 	previewPort: integer("previewPort").default(3000),
@@ -124,10 +86,16 @@ export const applications = pgTable("application", {
 	previewCertificateType: certificateType("certificateType")
 		.notNull()
 		.default("none"),
+	previewCustomCertResolver: text("previewCustomCertResolver"),
 	previewLimit: integer("previewLimit").default(3),
 	isPreviewDeploymentsActive: boolean("isPreviewDeploymentsActive").default(
 		false,
 	),
+	// Security: Require collaborator permissions for preview deployments
+	previewRequireCollaboratorPermissions: boolean(
+		"previewRequireCollaboratorPermissions",
+	).default(true),
+	rollbackActive: boolean("rollbackActive").default(false),
 	buildArgs: text("buildArgs"),
 	memoryReservation: text("memoryReservation"),
 	memoryLimit: text("memoryLimit"),
@@ -139,11 +107,13 @@ export const applications = pgTable("application", {
 	command: text("command"),
 	refreshToken: text("refreshToken").$defaultFn(() => nanoid()),
 	sourceType: sourceType("sourceType").notNull().default("github"),
+	cleanCache: boolean("cleanCache").default(false),
 	// Github
 	repository: text("repository"),
 	owner: text("owner"),
 	branch: text("branch"),
 	buildPath: text("buildPath").default("/"),
+	triggerType: triggerType("triggerType").default("push"),
 	autoDeploy: boolean("autoDeploy").$defaultFn(() => true),
 	// Gitlab
 	gitlabProjectId: integer("gitlabProjectId"),
@@ -152,6 +122,11 @@ export const applications = pgTable("application", {
 	gitlabBranch: text("gitlabBranch"),
 	gitlabBuildPath: text("gitlabBuildPath").default("/"),
 	gitlabPathNamespace: text("gitlabPathNamespace"),
+	// Gitea
+	giteaRepository: text("giteaRepository"),
+	giteaOwner: text("giteaOwner"),
+	giteaBranch: text("giteaBranch"),
+	giteaBuildPath: text("giteaBuildPath").default("/"),
 	// Bitbucket
 	bitbucketRepository: text("bitbucketRepository"),
 	bitbucketOwner: text("bitbucketOwner"),
@@ -172,6 +147,7 @@ export const applications = pgTable("application", {
 			onDelete: "set null",
 		},
 	),
+	enableSubmodules: boolean("enableSubmodules").notNull().default(false),
 	dockerfile: text("dockerfile"),
 	dockerContextPath: text("dockerContextPath"),
 	dockerBuildStage: text("dockerBuildStage"),
@@ -192,8 +168,10 @@ export const applications = pgTable("application", {
 		.notNull()
 		.default("idle"),
 	buildType: buildType("buildType").notNull().default("nixpacks"),
+	railpackVersion: text("railpackVersion").default("0.2.2"),
 	herokuVersion: text("herokuVersion").default("24"),
 	publishDirectory: text("publishDirectory"),
+	isStaticSpa: boolean("isStaticSpa"),
 	createdAt: text("createdAt")
 		.notNull()
 		.$defaultFn(() => new Date().toISOString()),
@@ -207,6 +185,9 @@ export const applications = pgTable("application", {
 		onDelete: "set null",
 	}),
 	gitlabId: text("gitlabId").references(() => gitlab.gitlabId, {
+		onDelete: "set null",
+	}),
+	giteaId: text("giteaId").references(() => gitea.giteaId, {
 		onDelete: "set null",
 	}),
 	bitbucketId: text("bitbucketId").references(() => bitbucket.bitbucketId, {
@@ -246,6 +227,10 @@ export const applicationsRelations = relations(
 			fields: [applications.gitlabId],
 			references: [gitlab.gitlabId],
 		}),
+		gitea: one(gitea, {
+			fields: [applications.giteaId],
+			references: [gitea.giteaId],
+		}),
 		bitbucket: one(bitbucket, {
 			fields: [applications.bitbucketId],
 			references: [bitbucket.bitbucketId],
@@ -257,94 +242,6 @@ export const applicationsRelations = relations(
 		previewDeployments: many(previewDeployments),
 	}),
 );
-
-const HealthCheckSwarmSchema = z
-	.object({
-		Test: z.array(z.string()).optional(),
-		Interval: z.number().optional(),
-		Timeout: z.number().optional(),
-		StartPeriod: z.number().optional(),
-		Retries: z.number().optional(),
-	})
-	.strict();
-
-const RestartPolicySwarmSchema = z
-	.object({
-		Condition: z.string().optional(),
-		Delay: z.number().optional(),
-		MaxAttempts: z.number().optional(),
-		Window: z.number().optional(),
-	})
-	.strict();
-
-const PreferenceSchema = z
-	.object({
-		Spread: z.object({
-			SpreadDescriptor: z.string(),
-		}),
-	})
-	.strict();
-
-const PlatformSchema = z
-	.object({
-		Architecture: z.string(),
-		OS: z.string(),
-	})
-	.strict();
-
-const PlacementSwarmSchema = z
-	.object({
-		Constraints: z.array(z.string()).optional(),
-		Preferences: z.array(PreferenceSchema).optional(),
-		MaxReplicas: z.number().optional(),
-		Platforms: z.array(PlatformSchema).optional(),
-	})
-	.strict();
-
-const UpdateConfigSwarmSchema = z
-	.object({
-		Parallelism: z.number(),
-		Delay: z.number().optional(),
-		FailureAction: z.string().optional(),
-		Monitor: z.number().optional(),
-		MaxFailureRatio: z.number().optional(),
-		Order: z.string(),
-	})
-	.strict();
-
-const ReplicatedSchema = z
-	.object({
-		Replicas: z.number().optional(),
-	})
-	.strict();
-
-const ReplicatedJobSchema = z
-	.object({
-		MaxConcurrent: z.number().optional(),
-		TotalCompletions: z.number().optional(),
-	})
-	.strict();
-
-const ServiceModeSwarmSchema = z
-	.object({
-		Replicated: ReplicatedSchema.optional(),
-		Global: z.object({}).optional(),
-		ReplicatedJob: ReplicatedJobSchema.optional(),
-		GlobalJob: z.object({}).optional(),
-	})
-	.strict();
-
-const NetworkSwarmSchema = z.array(
-	z
-		.object({
-			Target: z.string().optional(),
-			Aliases: z.array(z.string()).optional(),
-			DriverOpts: z.object({}).optional(),
-		})
-		.strict(),
-);
-
-const LabelsSwarmSchema = z.record(z.string());
 
 const createSchema = createInsertSchema(applications, {
 	appName: z.string(),
@@ -376,7 +273,9 @@ const createSchema = createInsertSchema(applications, {
 	customGitUrl: z.string().optional(),
 	buildPath: z.string().optional(),
 	projectId: z.string(),
-	sourceType: z.enum(["github", "docker", "git"]).optional(),
+	sourceType: z
+		.enum(["github", "docker", "git", "gitlab", "bitbucket", "gitea", "drop"])
+		.optional(),
 	applicationStatus: z.enum(["idle", "running", "done", "error"]),
 	buildType: z.enum([
 		"dockerfile",
@@ -384,9 +283,12 @@ const createSchema = createInsertSchema(applications, {
 		"paketo_buildpacks",
 		"nixpacks",
 		"static",
+		"railpack",
 	]),
+	railpackVersion: z.string().optional(),
 	herokuVersion: z.string().optional(),
 	publishDirectory: z.string().optional(),
+	isStaticSpa: z.boolean().optional(),
 	owner: z.string(),
 	healthCheckSwarm: HealthCheckSwarmSchema.nullable(),
 	restartPolicySwarm: RestartPolicySwarmSchema.nullable(),
@@ -403,7 +305,10 @@ const createSchema = createInsertSchema(applications, {
 	previewLimit: z.number().optional(),
 	previewHttps: z.boolean().optional(),
 	previewPath: z.string().optional(),
-	previewCertificateType: z.enum(["letsencrypt", "none"]).optional(),
+	previewCertificateType: z.enum(["letsencrypt", "none", "custom"]).optional(),
+	previewRequireCollaboratorPermissions: z.boolean().optional(),
+	watchPaths: z.array(z.string()).optional(),
+	cleanCache: z.boolean().optional(),
 });
 
 export const apiCreateApplication = createSchema.pick({
@@ -435,9 +340,10 @@ export const apiSaveBuildType = createSchema
 		dockerContextPath: true,
 		dockerBuildStage: true,
 		herokuVersion: true,
+		railpackVersion: true,
 	})
 	.required()
-	.merge(createSchema.pick({ publishDirectory: true }));
+	.merge(createSchema.pick({ publishDirectory: true, isStaticSpa: true }));
 
 export const apiSaveGithubProvider = createSchema
 	.pick({
@@ -447,8 +353,13 @@ export const apiSaveGithubProvider = createSchema
 		owner: true,
 		buildPath: true,
 		githubId: true,
+		watchPaths: true,
+		enableSubmodules: true,
 	})
-	.required();
+	.required()
+	.extend({
+		triggerType: z.enum(["push", "tag"]).default("push"),
+	});
 
 export const apiSaveGitlabProvider = createSchema
 	.pick({
@@ -460,6 +371,8 @@ export const apiSaveGitlabProvider = createSchema
 		gitlabId: true,
 		gitlabProjectId: true,
 		gitlabPathNamespace: true,
+		watchPaths: true,
+		enableSubmodules: true,
 	})
 	.required();
 
@@ -471,6 +384,21 @@ export const apiSaveBitbucketProvider = createSchema
 		bitbucketRepository: true,
 		bitbucketId: true,
 		applicationId: true,
+		watchPaths: true,
+		enableSubmodules: true,
+	})
+	.required();
+
+export const apiSaveGiteaProvider = createSchema
+	.pick({
+		applicationId: true,
+		giteaBranch: true,
+		giteaBuildPath: true,
+		giteaOwner: true,
+		giteaRepository: true,
+		giteaId: true,
+		watchPaths: true,
+		enableSubmodules: true,
 	})
 	.required();
 
@@ -490,6 +418,8 @@ export const apiSaveGitProvider = createSchema
 		applicationId: true,
 		customGitBuildPath: true,
 		customGitUrl: true,
+		watchPaths: true,
+		enableSubmodules: true,
 	})
 	.required()
 	.merge(

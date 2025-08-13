@@ -85,7 +85,7 @@ const Tree = React.forwardRef<HTMLDivElement, TreeProps>(
 			return ids;
 		}, [data, initialSlelectedItemId]);
 
-		const { ref: refRoot, width, height } = useResizeObserver();
+		const { ref: refRoot } = useResizeObserver();
 
 		return (
 			<div ref={refRoot} className={cn("overflow-y-auto", className)}>
@@ -246,7 +246,9 @@ const Leaf = React.forwardRef<
 					aria-hidden="true"
 				/>
 			)}
-			<p className=" text-sm whitespace-normal font-mono">{item.name}</p>
+			<p className="text-sm whitespace-normal font-mono text-left">
+				{item.name}
+			</p>
 		</button>
 	);
 });

@@ -86,6 +86,7 @@ export const AddCertificate = () => {
 			privateKey: data.privateKey,
 			autoRenew: data.autoRenew,
 			serverId: data.serverId,
+			organizationId: "",
 		})
 			.then(async () => {
 				toast.success("Certificate Created");
@@ -105,7 +106,7 @@ export const AddCertificate = () => {
 					Add Certificate
 				</Button>
 			</DialogTrigger>
-			<DialogContent className="max-h-screen  overflow-y-auto sm:max-w-2xl">
+			<DialogContent className="sm:max-w-2xl">
 				<DialogHeader>
 					<DialogTitle>Add New Certificate</DialogTitle>
 					<DialogDescription>
@@ -221,7 +222,7 @@ export const AddCertificate = () => {
 						/>
 					</form>
 
-					<DialogFooter className="flex w-full flex-row !justify-end pt-3">
+					<DialogFooter className="flex w-full flex-row !justify-end">
 						<Button
 							isLoading={isLoading}
 							form="hook-form-add-certificate"

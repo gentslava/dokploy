@@ -65,6 +65,7 @@ export const notificationSchema = z.discriminatedUnion("type", [
 			type: z.literal("telegram"),
 			botToken: z.string().min(1, { message: "Bot Token is required" }),
 			chatId: z.string().min(1, { message: "Chat ID is required" }),
+			messageThreadId: z.string().optional(),
 		})
 		.merge(notificationBaseSchema),
 	z
@@ -136,7 +137,7 @@ export const HandleNotifications = ({ notificationId }: Props) => {
 	const [visible, setVisible] = useState(false);
 	const { data: isCloud } = api.settings.isCloud.useQuery();
 
-	const { data: notification, refetch } = api.notification.one.useQuery(
+	const { data: notification } = api.notification.one.useQuery(
 		{
 			notificationId: notificationId || "",
 		},
@@ -214,6 +215,7 @@ export const HandleNotifications = ({ notificationId }: Props) => {
 					dokployRestart: notification.dokployRestart,
 					databaseBackup: notification.databaseBackup,
 					botToken: notification.telegram?.botToken,
+					messageThreadId: notification.telegram?.messageThreadId || "",
 					chatId: notification.telegram?.chatId,
 					type: notification.notificationType,
 					name: notification.name,
@@ -309,6 +311,7 @@ export const HandleNotifications = ({ notificationId }: Props) => {
 				dokployRestart: dokployRestart,
 				databaseBackup: databaseBackup,
 				botToken: data.botToken,
+				messageThreadId: data.messageThreadId || "",
 				chatId: data.chatId,
 				name: data.name,
 				dockerCleanup: dockerCleanup,
@@ -405,7 +408,7 @@ export const HandleNotifications = ({ notificationId }: Props) => {
 					</Button>
 				)}
 			</DialogTrigger>
-			<DialogContent className="max-h-screen  overflow-y-auto sm:max-w-3xl">
+			<DialogContent className="sm:max-w-3xl">
 				<DialogHeader>
 					<DialogTitle>
 						{notificationId ? "Update" : "Add"} Notification
@@ -561,8 +564,26 @@ export const HandleNotifications = ({ notificationId }: Props) => {
 													<FormControl>
 														<Input placeholder="431231869" {...field} />
 													</FormControl>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+
+										<FormField
+											control={form.control}
+											name="messageThreadId"
+											render={({ field }) => (
+												<FormItem>
+													<FormLabel>Message Thread ID</FormLabel>
+													<FormControl>
+														<Input placeholder="11" {...field} />
+													</FormControl>
 
 													<FormMessage />
+													<FormDescription>
+														Optional. Use it when you want to send notifications
+														to a specific topic in a group.
+													</FormDescription>
 												</FormItem>
 											)}
 										/>
@@ -642,13 +663,16 @@ export const HandleNotifications = ({ notificationId }: Props) => {
 																{...field}
 																onChange={(e) => {
 																	const value = e.target.value;
-																	if (value) {
+																	if (value === "") {
+																		field.onChange(undefined);
+																	} else {
 																		const port = Number.parseInt(value);
 																		if (port > 0 && port < 65536) {
 																			field.onChange(port);
 																		}
 																	}
 																}}
+																value={field.value || ""}
 																type="number"
 															/>
 														</FormControl>
@@ -883,7 +907,7 @@ export const HandleNotifications = ({ notificationId }: Props) => {
 									control={form.control}
 									name="appBuildError"
 									render={({ field }) => (
-										<FormItem className=" flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm gap-2">
+										<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm gap-2">
 											<div className="space-y-0.5">
 												<FormLabel>App Build Error</FormLabel>
 												<FormDescription>
@@ -904,7 +928,7 @@ export const HandleNotifications = ({ notificationId }: Props) => {
 									control={form.control}
 									name="databaseBackup"
 									render={({ field }) => (
-										<FormItem className=" flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm gap-2">
+										<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm gap-2">
 											<div className="space-y-0.5">
 												<FormLabel>Database Backup</FormLabel>
 												<FormDescription>
@@ -925,7 +949,7 @@ export const HandleNotifications = ({ notificationId }: Props) => {
 									control={form.control}
 									name="dockerCleanup"
 									render={({ field }) => (
-										<FormItem className=" flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm gap-2">
+										<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm gap-2">
 											<div className="space-y-0.5">
 												<FormLabel>Docker Cleanup</FormLabel>
 												<FormDescription>
@@ -948,7 +972,7 @@ export const HandleNotifications = ({ notificationId }: Props) => {
 										control={form.control}
 										name="dokployRestart"
 										render={({ field }) => (
-											<FormItem className=" flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm gap-2">
+											<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm gap-2">
 												<div className="space-y-0.5">
 													<FormLabel>Dokploy Restart</FormLabel>
 													<FormDescription>
@@ -971,7 +995,7 @@ export const HandleNotifications = ({ notificationId }: Props) => {
 										control={form.control}
 										name="serverThreshold"
 										render={({ field }) => (
-											<FormItem className=" flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm gap-2">
+											<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm gap-2">
 												<div className="space-y-0.5">
 													<FormLabel>Server Threshold</FormLabel>
 													<FormDescription>
@@ -1014,6 +1038,7 @@ export const HandleNotifications = ({ notificationId }: Props) => {
 										await testTelegramConnection({
 											botToken: form.getValues("botToken"),
 											chatId: form.getValues("chatId"),
+											messageThreadId: form.getValues("messageThreadId") || "",
 										});
 									} else if (type === "discord") {
 										await testDiscordConnection({
@@ -1038,7 +1063,7 @@ export const HandleNotifications = ({ notificationId }: Props) => {
 										});
 									}
 									toast.success("Connection Success");
-								} catch (err) {
+								} catch {
 									toast.error("Error testing the provider");
 								}
 							}}

@@ -1,3 +1,4 @@
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AlertBlock } from "@/components/shared/alert-block";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +11,7 @@ import {
 import {
 	Form,
 	FormControl,
+	FormDescription,
 	FormField,
 	FormItem,
 	FormLabel,
@@ -17,7 +19,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { generateSHA256Hash } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
+import { generateSHA256Hash, getFallbackAvatarInitials } from "@/lib/utils";
 import { api } from "@/utils/api";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, User } from "lucide-react";
@@ -34,6 +37,8 @@ const profileSchema = z.object({
 	password: z.string().nullable(),
 	currentPassword: z.string().nullable(),
 	image: z.string().optional(),
+	name: z.string().optional(),
+	allowImpersonation: z.boolean().optional().default(false),
 });
 
 type Profile = z.infer<typeof profileSchema>;
@@ -54,13 +59,16 @@ const randomImages = [
 ];
 
 export const ProfileForm = () => {
-	const { data, refetch, isLoading } = api.auth.get.useQuery();
+	const _utils = api.useUtils();
+	const { data, refetch, isLoading } = api.user.get.useQuery();
+	const { data: isCloud } = api.settings.isCloud.useQuery();
+
 	const {
 		mutateAsync,
 		isLoading: isUpdating,
 		isError,
 		error,
-	} = api.auth.update.useMutation();
+	} = api.user.update.useMutation();
 	const { t } = useTranslation("settings");
 	const [gravatarHash, setGravatarHash] = useState<string | null>(null);
 
@@ -73,43 +81,60 @@ export const ProfileForm = () => {
 
 	const form = useForm<Profile>({
 		defaultValues: {
-			email: data?.email || "",
+			email: data?.user?.email || "",
 			password: "",
-			image: data?.image || "",
+			image: data?.user?.image || "",
 			currentPassword: "",
+			allowImpersonation: data?.user?.allowImpersonation || false,
+			name: data?.user?.name || "",
 		},
 		resolver: zodResolver(profileSchema),
 	});
 
 	useEffect(() => {
 		if (data) {
-			form.reset({
-				email: data?.email || "",
-				password: "",
-				image: data?.image || "",
-				currentPassword: "",
-			});
+			form.reset(
+				{
+					email: data?.user?.email || "",
+					password: form.getValues("password") || "",
+					image: data?.user?.image || "",
+					currentPassword: form.getValues("currentPassword") || "",
+					allowImpersonation: data?.user?.allowImpersonation,
+					name: data?.user?.name || "",
+				},
+				{
+					keepValues: true,
+				},
+			);
+			form.setValue("allowImpersonation", data?.user?.allowImpersonation);
 
-			if (data.email) {
-				generateSHA256Hash(data.email).then((hash) => {
+			if (data.user.email) {
+				generateSHA256Hash(data.user.email).then((hash) => {
 					setGravatarHash(hash);
 				});
 			}
 		}
-		form.reset();
-	}, [form, form.reset, data]);
+	}, [form, data]);
 
 	const onSubmit = async (values: Profile) => {
 		await mutateAsync({
 			email: values.email.toLowerCase(),
-			password: values.password,
+			password: values.password || undefined,
 			image: values.image,
-			currentPassword: values.currentPassword,
+			currentPassword: values.currentPassword || undefined,
+			allowImpersonation: values.allowImpersonation,
+			name: values.name || undefined,
 		})
 			.then(async () => {
 				await refetch();
 				toast.success("Profile Updated");
-				form.reset();
+				form.reset({
+					email: values.email,
+					password: "",
+					image: values.image,
+					currentPassword: "",
+					name: values.name || "",
+				});
 			})
 			.catch(() => {
 				toast.error("Error updating the profile");
@@ -130,7 +155,7 @@ export const ProfileForm = () => {
 								{t("settings.profile.description")}
 							</CardDescription>
 						</div>
-						{!data?.is2FAEnabled ? <Enable2FA /> : <Disable2FA />}
+						{!data?.user.twoFactorEnabled ? <Enable2FA /> : <Disable2FA />}
 					</CardHeader>
 
 					<CardContent className="space-y-2 py-8 border-t">
@@ -148,6 +173,19 @@ export const ProfileForm = () => {
 										className="grid gap-4"
 									>
 										<div className="space-y-4">
+											<FormField
+												control={form.control}
+												name="name"
+												render={({ field }) => (
+													<FormItem>
+														<FormLabel>Name</FormLabel>
+														<FormControl>
+															<Input placeholder="Name" {...field} />
+														</FormControl>
+														<FormMessage />
+													</FormItem>
+												)}
+											/>
 											<FormField
 												control={form.control}
 												name="email"
@@ -220,6 +258,24 @@ export const ProfileForm = () => {
 																value={field.value}
 																className="flex flex-row flex-wrap gap-2 max-xl:justify-center"
 															>
+																<FormItem key="no-avatar">
+																	<FormLabel className="[&:has([data-state=checked])>.default-avatar]:border-primary [&:has([data-state=checked])>.default-avatar]:border-1 [&:has([data-state=checked])>.default-avatar]:p-px cursor-pointer">
+																		<FormControl>
+																			<RadioGroupItem
+																				value=""
+																				className="sr-only"
+																			/>
+																		</FormControl>
+
+																		<Avatar className="default-avatar h-12 w-12 rounded-full border hover:p-px hover:border-primary transition-transform">
+																			<AvatarFallback className="rounded-lg">
+																				{getFallbackAvatarInitials(
+																					data?.user?.name,
+																				)}
+																			</AvatarFallback>
+																		</Avatar>
+																	</FormLabel>
+																</FormItem>
 																{availableAvatars.map((image) => (
 																	<FormItem key={image}>
 																		<FormLabel className="[&:has([data-state=checked])>img]:border-primary [&:has([data-state=checked])>img]:border-1 [&:has([data-state=checked])>img]:p-px cursor-pointer">
@@ -245,7 +301,34 @@ export const ProfileForm = () => {
 													</FormItem>
 												)}
 											/>
+											{isCloud && (
+												<FormField
+													control={form.control}
+													name="allowImpersonation"
+													render={({ field }) => (
+														<FormItem className="flex flex-row items-center justify-between p-3 mt-4 border rounded-lg shadow-sm">
+															<div className="space-y-0.5">
+																<FormLabel>Allow Impersonation</FormLabel>
+																<FormDescription>
+																	Enable this option to allow Dokploy Cloud
+																	administrators to temporarily access your
+																	account for troubleshooting and support
+																	purposes. This helps them quickly identify and
+																	resolve any issues you may encounter.
+																</FormDescription>
+															</div>
+															<FormControl>
+																<Switch
+																	checked={field.value}
+																	onCheckedChange={field.onChange}
+																/>
+															</FormControl>
+														</FormItem>
+													)}
+												/>
+											)}
 										</div>
+
 										<div className="flex items-center justify-end gap-2">
 											<Button type="submit" isLoading={isUpdating}>
 												{t("settings.common.save")}

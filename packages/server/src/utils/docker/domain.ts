@@ -15,6 +15,10 @@ import {
 	cloneRawGitRepositoryRemote,
 } from "../providers/git";
 import {
+	cloneRawGiteaRepository,
+	cloneRawGiteaRepositoryRemote,
+} from "../providers/gitea";
+import {
 	cloneRawGithubRepository,
 	cloneRawGithubRepositoryRemote,
 } from "../providers/github";
@@ -26,6 +30,7 @@ import {
 	createComposeFileRaw,
 	createComposeFileRawRemote,
 } from "../providers/raw";
+import { randomizeDeployableSpecificationFile } from "./collision";
 import { randomizeSpecificationFile } from "./compose";
 import type {
 	ComposeSpecification,
@@ -43,6 +48,8 @@ export const cloneCompose = async (compose: Compose) => {
 		await cloneRawBitbucketRepository(compose);
 	} else if (compose.sourceType === "git") {
 		await cloneGitRawRepository(compose);
+	} else if (compose.sourceType === "gitea") {
+		await cloneRawGiteaRepository(compose);
 	} else if (compose.sourceType === "raw") {
 		await createComposeFileRaw(compose);
 	}
@@ -57,6 +64,8 @@ export const cloneComposeRemote = async (compose: Compose) => {
 		await cloneRawBitbucketRepositoryRemote(compose);
 	} else if (compose.sourceType === "git") {
 		await cloneRawGitRepositoryRemote(compose);
+	} else if (compose.sourceType === "gitea") {
+		await cloneRawGiteaRepositoryRemote(compose);
 	} else if (compose.sourceType === "raw") {
 		await createComposeFileRawRemote(compose);
 	}
@@ -108,7 +117,7 @@ export const loadDockerComposeRemote = async (
 		if (!stdout) return null;
 		const parsedConfig = load(stdout) as ComposeSpecification;
 		return parsedConfig;
-	} catch (err) {
+	} catch {
 		return null;
 	}
 };
@@ -190,7 +199,14 @@ export const addDomainToCompose = async (
 		return null;
 	}
 
-	if (compose.randomize) {
+	if (compose.isolatedDeployment) {
+		const randomized = randomizeDeployableSpecificationFile(
+			result,
+			compose.isolatedDeploymentsVolume,
+			compose.suffix || compose.appName,
+		);
+		result = randomized;
+	} else if (compose.randomize) {
 		const randomized = randomizeSpecificationFile(result, compose.suffix);
 		result = randomized;
 	}
@@ -204,13 +220,9 @@ export const addDomainToCompose = async (
 			throw new Error(`The service ${serviceName} not found in the compose`);
 		}
 
-		const httpLabels = await createDomainLabels(appName, domain, "web");
+		const httpLabels = createDomainLabels(appName, domain, "web");
 		if (https) {
-			const httpsLabels = await createDomainLabels(
-				appName,
-				domain,
-				"websecure",
-			);
+			const httpsLabels = createDomainLabels(appName, domain, "websecure");
 			httpLabels.push(...httpsLabels);
 		}
 
@@ -235,19 +247,28 @@ export const addDomainToCompose = async (
 
 		if (Array.isArray(labels)) {
 			if (!labels.includes("traefik.enable=true")) {
-				labels.push("traefik.enable=true");
+				labels.unshift("traefik.enable=true");
 			}
-			labels.push(...httpLabels);
+			labels.unshift(...httpLabels);
+			if (!compose.isolatedDeployment) {
+				if (!labels.includes("traefik.docker.network=dokploy-network")) {
+					labels.unshift("traefik.docker.network=dokploy-network");
+				}
+			}
 		}
 
-		// Add the dokploy-network to the service
-		result.services[serviceName].networks = addDokployNetworkToService(
-			result.services[serviceName].networks,
-		);
+		if (!compose.isolatedDeployment) {
+			// Add the dokploy-network to the service
+			result.services[serviceName].networks = addDokployNetworkToService(
+				result.services[serviceName].networks,
+			);
+		}
 	}
 
 	// Add dokploy-network to the root of the compose file
-	result.networks = addDokployNetworkToRoot(result.networks);
+	if (!compose.isolatedDeployment) {
+		result.networks = addDokployNetworkToRoot(result.networks);
+	}
 
 	return result;
 };
@@ -268,12 +289,22 @@ export const writeComposeFile = async (
 	}
 };
 
-export const createDomainLabels = async (
+export const createDomainLabels = (
 	appName: string,
 	domain: Domain,
 	entrypoint: "web" | "websecure",
 ) => {
-	const { host, port, https, uniqueConfigKey, certificateType, path } = domain;
+	const {
+		host,
+		port,
+		https,
+		uniqueConfigKey,
+		certificateType,
+		path,
+		customCertResolver,
+		stripPath,
+		internalPath,
+	} = domain;
 	const routerName = `${appName}-${uniqueConfigKey}-${entrypoint}`;
 	const labels = [
 		`traefik.http.routers.${routerName}.rule=Host(\`${host}\`)${path && path !== "/" ? ` && PathPrefix(\`${path}\`)` : ""}`,
@@ -282,16 +313,54 @@ export const createDomainLabels = async (
 		`traefik.http.routers.${routerName}.service=${routerName}`,
 	];
 
+	// Collect middlewares for this router
+	const middlewares: string[] = [];
+
+	// Add HTTPS redirect for web entrypoint (must be first)
 	if (entrypoint === "web" && https) {
+		middlewares.push("redirect-to-https@file");
+	}
+
+	// Add stripPath middleware if needed
+	if (stripPath && path && path !== "/") {
+		const middlewareName = `stripprefix-${appName}-${uniqueConfigKey}`;
+		// Only define middleware once (on web entrypoint)
+		if (entrypoint === "web") {
+			labels.push(
+				`traefik.http.middlewares.${middlewareName}.stripprefix.prefixes=${path}`,
+			);
+		}
+		middlewares.push(middlewareName);
+	}
+
+	// Add internalPath middleware if needed
+	if (internalPath && internalPath !== "/" && internalPath.startsWith("/")) {
+		const middlewareName = `addprefix-${appName}-${uniqueConfigKey}`;
+		// Only define middleware once (on web entrypoint)
+		if (entrypoint === "web") {
+			labels.push(
+				`traefik.http.middlewares.${middlewareName}.addprefix.prefix=${internalPath}`,
+			);
+		}
+		middlewares.push(middlewareName);
+	}
+
+	// Apply middlewares to router if any exist
+	if (middlewares.length > 0) {
 		labels.push(
-			`traefik.http.routers.${routerName}.middlewares=redirect-to-https@file`,
+			`traefik.http.routers.${routerName}.middlewares=${middlewares.join(",")}`,
 		);
 	}
 
+	// Add TLS configuration for websecure
 	if (entrypoint === "websecure") {
 		if (certificateType === "letsencrypt") {
 			labels.push(
 				`traefik.http.routers.${routerName}.tls.certresolver=letsencrypt`,
+			);
+		} else if (certificateType === "custom" && customCertResolver) {
+			labels.push(
+				`traefik.http.routers.${routerName}.tls.certresolver=${customCertResolver}`,
 			);
 		}
 	}

@@ -79,7 +79,7 @@ export const ContainerPaidMonitoring = ({ appName, baseUrl, token }: Props) => {
 		data,
 		isLoading,
 		error: queryError,
-	} = api.admin.getContainerMetrics.useQuery(
+	} = api.user.getContainerMetrics.useQuery(
 		{
 			url: baseUrl,
 			token,
@@ -123,7 +123,7 @@ export const ContainerPaidMonitoring = ({ appName, baseUrl, token }: Props) => {
 							? queryError.message
 							: "Failed to fetch metrics, Please check your monitoring Instance is Configured correctly."}
 					</p>
-					<p className=" text-sm text-muted-foreground">URL: {baseUrl}</p>
+					<p className="text-sm text-muted-foreground">URL: {baseUrl}</p>
 				</div>
 			</div>
 		);

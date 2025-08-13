@@ -1,34 +1,35 @@
+import { db } from "@/server/db";
 import {
 	apiCreateRegistry,
 	apiFindOneRegistry,
 	apiRemoveRegistry,
 	apiTestRegistry,
 	apiUpdateRegistry,
+	registry,
 } from "@/server/db/schema";
 import {
 	IS_CLOUD,
 	createRegistry,
-	execAsync,
 	execAsyncRemote,
-	findAllRegistryByAdminId,
+	execFileAsync,
 	findRegistryById,
 	removeRegistry,
 	updateRegistry,
 } from "@dokploy/server";
 import { TRPCError } from "@trpc/server";
+import { eq } from "drizzle-orm";
 import { adminProcedure, createTRPCRouter, protectedProcedure } from "../trpc";
-
 export const registryRouter = createTRPCRouter({
 	create: adminProcedure
 		.input(apiCreateRegistry)
 		.mutation(async ({ ctx, input }) => {
-			return await createRegistry(input, ctx.user.adminId);
+			return await createRegistry(input, ctx.session.activeOrganizationId);
 		}),
 	remove: adminProcedure
 		.input(apiRemoveRegistry)
 		.mutation(async ({ ctx, input }) => {
 			const registry = await findRegistryById(input.registryId);
-			if (registry.adminId !== ctx.user.adminId) {
+			if (registry.organizationId !== ctx.session.activeOrganizationId) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not allowed to delete this registry",
@@ -41,7 +42,7 @@ export const registryRouter = createTRPCRouter({
 		.mutation(async ({ input, ctx }) => {
 			const { registryId, ...rest } = input;
 			const registry = await findRegistryById(registryId);
-			if (registry.adminId !== ctx.user.adminId) {
+			if (registry.organizationId !== ctx.session.activeOrganizationId) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not allowed to update this registry",
@@ -61,13 +62,16 @@ export const registryRouter = createTRPCRouter({
 			return true;
 		}),
 	all: protectedProcedure.query(async ({ ctx }) => {
-		return await findAllRegistryByAdminId(ctx.user.adminId);
+		const registryResponse = await db.query.registry.findMany({
+			where: eq(registry.organizationId, ctx.session.activeOrganizationId),
+		});
+		return registryResponse;
 	}),
 	one: adminProcedure
 		.input(apiFindOneRegistry)
 		.query(async ({ input, ctx }) => {
 			const registry = await findRegistryById(input.registryId);
-			if (registry.adminId !== ctx.user.adminId) {
+			if (registry.organizationId !== ctx.session.activeOrganizationId) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not allowed to access this registry",
@@ -79,7 +83,13 @@ export const registryRouter = createTRPCRouter({
 		.input(apiTestRegistry)
 		.mutation(async ({ input }) => {
 			try {
-				const loginCommand = `echo ${input.password} | docker login ${input.registryUrl} --username ${input.username} --password-stdin`;
+				const args = [
+					"login",
+					input.registryUrl,
+					"--username",
+					input.username,
+					"--password-stdin",
+				];
 
 				if (IS_CLOUD && !input.serverId) {
 					throw new TRPCError({
@@ -89,9 +99,14 @@ export const registryRouter = createTRPCRouter({
 				}
 
 				if (input.serverId && input.serverId !== "none") {
-					await execAsyncRemote(input.serverId, loginCommand);
+					await execAsyncRemote(
+						input.serverId,
+						`echo ${input.password} | docker ${args.join(" ")}`,
+					);
 				} else {
-					await execAsync(loginCommand);
+					await execFileAsync("docker", args, {
+						input: Buffer.from(input.password).toString(),
+					});
 				}
 
 				return true;

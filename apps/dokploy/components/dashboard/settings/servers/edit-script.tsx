@@ -82,7 +82,7 @@ export const EditScript = ({ serverId }: Props) => {
 				command: formData.command || "",
 				serverId,
 			})
-				.then((data) => {
+				.then((_data) => {
 					toast.success("Script modified successfully");
 				})
 				.catch(() => {
@@ -99,7 +99,7 @@ export const EditScript = ({ serverId }: Props) => {
 					<FileTerminal className="size-4 text-muted-foreground" />
 				</Button>
 			</DialogTrigger>
-			<DialogContent className="max-h-screen overflow-y-auto sm:max-w-5xl overflow-x-hidden">
+			<DialogContent className="sm:max-w-5xl overflow-x-hidden">
 				<DialogHeader>
 					<DialogTitle>Modify Script</DialogTitle>
 					<DialogDescription>

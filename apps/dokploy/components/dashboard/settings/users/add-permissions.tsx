@@ -52,7 +52,7 @@ interface Props {
 export const AddUserPermissions = ({ userId }: Props) => {
 	const { data: projects } = api.project.all.useQuery();
 
-	const { data, refetch } = api.user.byUserId.useQuery(
+	const { data, refetch } = api.user.one.useQuery(
 		{
 			userId,
 		},
@@ -62,7 +62,7 @@ export const AddUserPermissions = ({ userId }: Props) => {
 	);
 
 	const { mutateAsync, isError, error, isLoading } =
-		api.admin.assignPermissions.useMutation();
+		api.user.assignPermissions.useMutation();
 
 	const form = useForm<AddPermissions>({
 		defaultValues: {
@@ -92,7 +92,7 @@ export const AddUserPermissions = ({ userId }: Props) => {
 
 	const onSubmit = async (data: AddPermissions) => {
 		await mutateAsync({
-			userId,
+			id: userId,
 			canCreateServices: data.canCreateServices,
 			canCreateProjects: data.canCreateProjects,
 			canDeleteServices: data.canDeleteServices,
@@ -123,7 +123,7 @@ export const AddUserPermissions = ({ userId }: Props) => {
 					Add Permissions
 				</DropdownMenuItem>
 			</DialogTrigger>
-			<DialogContent className="max-h-[85vh]  overflow-y-auto sm:max-w-4xl">
+			<DialogContent className="max-h-[85vh]  sm:max-w-4xl">
 				<DialogHeader>
 					<DialogTitle>Permissions</DialogTitle>
 					<DialogDescription>Add or remove permissions</DialogDescription>
@@ -140,7 +140,7 @@ export const AddUserPermissions = ({ userId }: Props) => {
 							control={form.control}
 							name="canCreateProjects"
 							render={({ field }) => (
-								<FormItem className=" flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+								<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
 									<div className="space-y-0.5">
 										<FormLabel>Create Projects</FormLabel>
 										<FormDescription>

@@ -2,7 +2,6 @@ import {
 	createWriteStream,
 	existsSync,
 	mkdirSync,
-	readFileSync,
 	writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
@@ -33,6 +32,12 @@ export const buildCompose = async (compose: ComposeNested, logPath: string) => {
 		const command = createCommand(compose);
 		await writeDomainsToCompose(compose, domains);
 		createEnvFile(compose);
+
+		if (compose.isolatedDeployment) {
+			await execAsync(
+				`docker network inspect ${compose.appName} >/dev/null 2>&1 || docker network create ${composeType === "stack" ? "--driver overlay" : ""} --attachable ${compose.appName}`,
+			);
+		}
 
 		const logContent = `
     App Name: ${appName}
@@ -73,6 +78,12 @@ export const buildCompose = async (compose: ComposeNested, logPath: string) => {
 			},
 		);
 
+		if (compose.isolatedDeployment) {
+			await execAsync(
+				`docker network connect ${compose.appName} $(docker ps --filter "name=dokploy-traefik" -q) >/dev/null 2>&1`,
+			).catch(() => {});
+		}
+
 		writeStream.write("Docker Compose Deployed: ✅");
 	} catch (error) {
 		writeStream.write(`Error ❌ ${(error as Error).message}`);
@@ -87,8 +98,7 @@ export const getBuildComposeCommand = async (
 	logPath: string,
 ) => {
 	const { COMPOSE_PATH } = paths(true);
-	const { sourceType, appName, mounts, composeType, domains, composePath } =
-		compose;
+	const { sourceType, appName, mounts, composeType, domains } = compose;
 	const command = createCommand(compose);
 	const envCommand = getCreateEnvFileCommand(compose);
 	const projectPath = join(COMPOSE_PATH, compose.appName, "code");
@@ -128,9 +138,10 @@ Compose Type: ${composeType} ✅`;
 	
 		cd "${projectPath}";
 
-    ${exportEnvCommand}
-
+        ${exportEnvCommand}
+		${compose.isolatedDeployment ? `docker network inspect ${compose.appName} >/dev/null 2>&1 || docker network create --attachable ${compose.appName}` : ""}
 		docker ${command.split(" ").join(" ")} >> "${logPath}" 2>&1 || { echo "Error: ❌ Docker command failed" >> "${logPath}"; exit 1; }
+		${compose.isolatedDeployment ? `docker network connect ${compose.appName} $(docker ps --filter "name=dokploy-traefik" -q) >/dev/null 2>&1` : ""}
 	
 		echo "Docker Compose Deployed: ✅" >> "${logPath}"
 	} || {
@@ -179,9 +190,10 @@ const createEnvFile = (compose: ComposeNested) => {
 		join(COMPOSE_PATH, appName, "code", "docker-compose.yml");
 
 	const envFilePath = join(dirname(composeFilePath), ".env");
-	let envContent = env || "";
+	let envContent = `APP_NAME=${appName}\n`;
+	envContent += env || "";
 	if (!envContent.includes("DOCKER_CONFIG")) {
-		envContent += "\nDOCKER_CONFIG=/root/.docker/config.json";
+		envContent += "\nDOCKER_CONFIG=/root/.docker";
 	}
 
 	if (compose.randomize) {
@@ -208,9 +220,10 @@ export const getCreateEnvFileCommand = (compose: ComposeNested) => {
 
 	const envFilePath = join(dirname(composeFilePath), ".env");
 
-	let envContent = env || "";
+	let envContent = `APP_NAME=${appName}\n`;
+	envContent += env || "";
 	if (!envContent.includes("DOCKER_CONFIG")) {
-		envContent += "\nDOCKER_CONFIG=/root/.docker/config.json";
+		envContent += "\nDOCKER_CONFIG=/root/.docker";
 	}
 
 	if (compose.randomize) {

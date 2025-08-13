@@ -1,8 +1,12 @@
 import { join } from "node:path";
 import { paths } from "@dokploy/server/constants";
 import { db } from "@dokploy/server/db";
-import { type apiCreateCompose, compose } from "@dokploy/server/db/schema";
-import { buildAppName, cleanAppName } from "@dokploy/server/db/schema";
+import {
+	type apiCreateCompose,
+	buildAppName,
+	cleanAppName,
+	compose,
+} from "@dokploy/server/db/schema";
 import {
 	buildCompose,
 	getBuildComposeCommand,
@@ -30,6 +34,10 @@ import {
 	getCustomGitCloneCommand,
 } from "@dokploy/server/utils/providers/git";
 import {
+	cloneGiteaRepository,
+	getGiteaCloneCommand,
+} from "@dokploy/server/utils/providers/gitea";
+import {
 	cloneGithubRepository,
 	getGithubCloneCommand,
 } from "@dokploy/server/utils/providers/github";
@@ -44,10 +52,9 @@ import {
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { encodeBase64 } from "../utils/docker/utils";
-import { findAdminById, getDokployUrl } from "./admin";
+import { getDokployUrl } from "./admin";
 import { createDeploymentCompose, updateDeploymentStatus } from "./deployment";
 import { validUniqueServerAppName } from "./project";
-import { cleanupFullDocker } from "./settings";
 
 export type Compose = typeof compose.$inferSelect;
 
@@ -66,7 +73,7 @@ export const createCompose = async (input: typeof apiCreateCompose._type) => {
 		.insert(compose)
 		.values({
 			...input,
-			composeFile: "",
+			composeFile: input.composeFile || "",
 			appName,
 		})
 		.returning()
@@ -126,7 +133,14 @@ export const findComposeById = async (composeId: string) => {
 			github: true,
 			gitlab: true,
 			bitbucket: true,
+			gitea: true,
 			server: true,
+			backups: {
+				with: {
+					destination: true,
+					deployments: true,
+				},
+			},
 		},
 	});
 	if (!result) {
@@ -217,10 +231,6 @@ export const deployCompose = async ({
 	});
 
 	try {
-		const admin = await findAdminById(compose.project.adminId);
-		if (admin.cleanupCacheOnCompose) {
-			await cleanupFullDocker(compose?.serverId);
-		}
 		if (compose.sourceType === "github") {
 			await cloneGithubRepository({
 				...compose,
@@ -233,6 +243,8 @@ export const deployCompose = async ({
 			await cloneBitbucketRepository(compose, deployment.logPath, true);
 		} else if (compose.sourceType === "git") {
 			await cloneGitRepository(compose, deployment.logPath, true);
+		} else if (compose.sourceType === "gitea") {
+			await cloneGiteaRepository(compose, deployment.logPath, true);
 		} else if (compose.sourceType === "raw") {
 			await createComposeFile(compose, deployment.logPath);
 		}
@@ -247,7 +259,7 @@ export const deployCompose = async ({
 			applicationName: compose.name,
 			applicationType: "compose",
 			buildLink,
-			adminId: compose.project.adminId,
+			organizationId: compose.project.organizationId,
 			domains: compose.domains,
 		});
 	} catch (error) {
@@ -262,7 +274,7 @@ export const deployCompose = async ({
 			// @ts-ignore
 			errorMessage: error?.message || "Error building",
 			buildLink,
-			adminId: compose.project.adminId,
+			organizationId: compose.project.organizationId,
 		});
 		throw error;
 	}
@@ -286,15 +298,10 @@ export const rebuildCompose = async ({
 	});
 
 	try {
-		const admin = await findAdminById(compose.project.adminId);
-		if (admin.cleanupCacheOnCompose) {
-			await cleanupFullDocker(compose?.serverId);
+		if (compose.sourceType === "raw") {
+			await createComposeFile(compose, deployment.logPath);
 		}
-		if (compose.serverId) {
-			await getBuildComposeCommand(compose, deployment.logPath);
-		} else {
-			await buildCompose(compose, deployment.logPath);
-		}
+		await buildCompose(compose, deployment.logPath);
 
 		await updateDeploymentStatus(deployment.deploymentId, "done");
 		await updateCompose(composeId, {
@@ -332,10 +339,6 @@ export const deployRemoteCompose = async ({
 	});
 	try {
 		if (compose.serverId) {
-			const admin = await findAdminById(compose.project.adminId);
-			if (admin.cleanupCacheOnCompose) {
-				await cleanupFullDocker(compose?.serverId);
-			}
 			let command = "set -e;";
 
 			if (compose.sourceType === "github") {
@@ -363,8 +366,15 @@ export const deployRemoteCompose = async ({
 					deployment.logPath,
 					true,
 				);
+				console.log(command);
 			} else if (compose.sourceType === "raw") {
 				command += getCreateComposeFileCommand(compose, deployment.logPath);
+			} else if (compose.sourceType === "gitea") {
+				command += await getGiteaCloneCommand(
+					compose,
+					deployment.logPath,
+					true,
+				);
 			}
 
 			await execAsyncRemote(compose.serverId, command);
@@ -381,7 +391,7 @@ export const deployRemoteCompose = async ({
 			applicationName: compose.name,
 			applicationType: "compose",
 			buildLink,
-			adminId: compose.project.adminId,
+			organizationId: compose.project.organizationId,
 			domains: compose.domains,
 		});
 	} catch (error) {
@@ -406,7 +416,7 @@ export const deployRemoteCompose = async ({
 			// @ts-ignore
 			errorMessage: error?.message || "Error building",
 			buildLink,
-			adminId: compose.project.adminId,
+			organizationId: compose.project.organizationId,
 		});
 		throw error;
 	}
@@ -430,9 +440,9 @@ export const rebuildRemoteCompose = async ({
 	});
 
 	try {
-		const admin = await findAdminById(compose.project.adminId);
-		if (admin.cleanupCacheOnCompose) {
-			await cleanupFullDocker(compose?.serverId);
+		if (compose.sourceType === "raw") {
+			const command = getCreateComposeFileCommand(compose, deployment.logPath);
+			await execAsyncRemote(compose.serverId, command);
 		}
 		if (compose.serverId) {
 			await getBuildComposeCommand(compose, deployment.logPath);
@@ -472,7 +482,9 @@ export const removeCompose = async (
 		const projectPath = join(COMPOSE_PATH, compose.appName);
 
 		if (compose.composeType === "stack") {
-			const command = `cd ${projectPath} && docker stack rm ${compose.appName} && rm -rf ${projectPath}`;
+			const command = `
+			docker network disconnect ${compose.appName} dokploy-traefik;
+			cd ${projectPath} && docker stack rm ${compose.appName} && rm -rf ${projectPath}`;
 
 			if (compose.serverId) {
 				await execAsyncRemote(compose.serverId, command);
@@ -483,12 +495,11 @@ export const removeCompose = async (
 				cwd: projectPath,
 			});
 		} else {
-			let command: string;
-			if (deleteVolumes) {
-				command = `cd ${projectPath} && docker compose -p ${compose.appName} down --volumes && rm -rf ${projectPath}`;
-			} else {
-				command = `cd ${projectPath} && docker compose -p ${compose.appName} down && rm -rf ${projectPath}`;
-			}
+			const command = `
+			 docker network disconnect ${compose.appName} dokploy-traefik;
+			cd ${projectPath} && docker compose -p ${compose.appName} down ${
+				deleteVolumes ? "--volumes" : ""
+			} && rm -rf ${projectPath}`;
 
 			if (compose.serverId) {
 				await execAsyncRemote(compose.serverId, command);
@@ -509,19 +520,20 @@ export const startCompose = async (composeId: string) => {
 	const compose = await findComposeById(composeId);
 	try {
 		const { COMPOSE_PATH } = paths(!!compose.serverId);
+
+		const projectPath = join(COMPOSE_PATH, compose.appName, "code");
+		const path =
+			compose.sourceType === "raw" ? "docker-compose.yml" : compose.composePath;
+		const baseCommand = `docker compose -p ${compose.appName} -f ${path} up -d`;
 		if (compose.composeType === "docker-compose") {
 			if (compose.serverId) {
 				await execAsyncRemote(
 					compose.serverId,
-					`cd ${join(
-						COMPOSE_PATH,
-						compose.appName,
-						"code",
-					)} && docker compose -p ${compose.appName} up -d`,
+					`cd ${projectPath} && ${baseCommand}`,
 				);
 			} else {
-				await execAsync(`docker compose -p ${compose.appName} up -d`, {
-					cwd: join(COMPOSE_PATH, compose.appName, "code"),
+				await execAsync(baseCommand, {
+					cwd: projectPath,
 				});
 			}
 		}

@@ -5,7 +5,7 @@ vi.mock("node:fs", () => ({
 	default: fs,
 }));
 
-import type { Admin, FileConfig } from "@dokploy/server";
+import type { FileConfig, User } from "@dokploy/server";
 import {
 	createDefaultServerTraefikConfig,
 	loadOrCreateConfig,
@@ -13,8 +13,11 @@ import {
 } from "@dokploy/server";
 import { beforeEach, expect, test, vi } from "vitest";
 
-const baseAdmin: Admin = {
+const baseAdmin: User = {
+	https: false,
 	enablePaidFeatures: false,
+	allowImpersonation: false,
+	role: "user",
 	metricsConfig: {
 		containers: {
 			refreshRate: 20,
@@ -40,19 +43,30 @@ const baseAdmin: Admin = {
 	cleanupCacheApplications: false,
 	cleanupCacheOnCompose: false,
 	cleanupCacheOnPreviews: false,
-	createdAt: "",
-	authId: "",
-	adminId: "string",
+	createdAt: new Date(),
 	serverIp: null,
 	certificateType: "none",
 	host: null,
 	letsEncryptEmail: null,
 	sshPrivateKey: null,
 	enableDockerCleanup: false,
-	enableLogRotation: false,
+	logCleanupCron: null,
 	serversQuantity: 0,
 	stripeCustomerId: "",
 	stripeSubscriptionId: "",
+	banExpires: new Date(),
+	banned: true,
+	banReason: "",
+	email: "",
+	expirationDate: "",
+	id: "",
+	isRegistered: false,
+	name: "",
+	createdAt2: new Date().toISOString(),
+	emailVerified: false,
+	image: "",
+	updatedAt: new Date(),
+	twoFactorEnabled: false,
 };
 
 beforeEach(() => {
@@ -62,7 +76,6 @@ beforeEach(() => {
 
 test("Should read the configuration file", () => {
 	const config: FileConfig = loadOrCreateConfig("dokploy");
-
 	expect(config.http?.routers?.["dokploy-router-app"]?.service).toBe(
 		"dokploy-service-app",
 	);
@@ -72,6 +85,7 @@ test("Should apply redirect-to-https", () => {
 	updateServerTraefik(
 		{
 			...baseAdmin,
+			https: true,
 			certificateType: "letsencrypt",
 		},
 		"example.com",
@@ -103,8 +117,6 @@ test("Should not touch config without host", () => {
 });
 
 test("Should remove websecure if https rollback to http", () => {
-	const originalConfig: FileConfig = loadOrCreateConfig("dokploy");
-
 	updateServerTraefik(
 		{ ...baseAdmin, certificateType: "letsencrypt" },
 		"example.com",

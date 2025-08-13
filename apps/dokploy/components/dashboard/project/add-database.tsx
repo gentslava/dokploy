@@ -1,3 +1,9 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { AlertTriangle, Database, HelpCircle } from "lucide-react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
 import {
 	MariadbIcon,
 	MongodbIcon,
@@ -18,7 +24,6 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
 	Form,
 	FormControl,
-	FormDescription,
 	FormField,
 	FormItem,
 	FormLabel,
@@ -38,18 +43,17 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { slugify } from "@/lib/slug";
 import { api } from "@/utils/api";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertTriangle, Database } from "lucide-react";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import { z } from "zod";
 
 type DbType = typeof mySchema._type.type;
 
-// TODO: Change to a real docker images
 const dockerImageDefaultPlaceholder: Record<DbType, string> = {
 	mongo: "mongo:6",
 	mariadb: "mariadb:11",
@@ -164,6 +168,8 @@ export const AddDatabase = ({ projectId, projectName }: Props) => {
 	const redisMutation = api.redis.create.useMutation();
 	const mariadbMutation = api.mariadb.create.useMutation();
 	const mysqlMutation = api.mysql.create.useMutation();
+
+	const hasServers = servers && servers.length > 0;
 
 	const form = useForm<AddDatabase>({
 		defaultValues: {
@@ -285,7 +291,7 @@ export const AddDatabase = ({ projectId, projectName }: Props) => {
 					<span>Database</span>
 				</DropdownMenuItem>
 			</DialogTrigger>
-			<DialogContent className="max-h-screen md:max-h-[90vh]  overflow-y-auto sm:max-w-2xl">
+			<DialogContent className="md:max-h-[90vh]  sm:max-w-2xl">
 				<DialogHeader>
 					<DialogTitle>Databases</DialogTitle>
 				</DialogHeader>
@@ -365,10 +371,8 @@ export const AddDatabase = ({ projectId, projectName }: Props) => {
 													{...field}
 													onChange={(e) => {
 														const val = e.target.value?.trim() || "";
-														form.setValue(
-															"appName",
-															`${slug}-${val.toLowerCase()}`,
-														);
+														const serviceName = slugify(val);
+														form.setValue("appName", `${slug}-${serviceName}`);
 														field.onChange(val);
 													}}
 												/>
@@ -378,45 +382,62 @@ export const AddDatabase = ({ projectId, projectName }: Props) => {
 										</FormItem>
 									)}
 								/>
-								<FormField
-									control={form.control}
-									name="serverId"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>Select a Server</FormLabel>
-											<Select
-												onValueChange={field.onChange}
-												defaultValue={field.value || ""}
-											>
-												<SelectTrigger>
-													<SelectValue placeholder="Select a Server" />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectGroup>
-														{servers?.map((server) => (
-															<SelectItem
-																key={server.serverId}
-																value={server.serverId}
-															>
-																{server.name}
-															</SelectItem>
-														))}
-														<SelectLabel>
-															Servers ({servers?.length})
-														</SelectLabel>
-													</SelectGroup>
-												</SelectContent>
-											</Select>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
+								{hasServers && (
+									<FormField
+										control={form.control}
+										name="serverId"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel>Select a Server</FormLabel>
+												<Select
+													onValueChange={field.onChange}
+													defaultValue={field.value || ""}
+												>
+													<SelectTrigger>
+														<SelectValue placeholder="Select a Server" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectGroup>
+															{servers?.map((server) => (
+																<SelectItem
+																	key={server.serverId}
+																	value={server.serverId}
+																>
+																	{server.name}
+																</SelectItem>
+															))}
+															<SelectLabel>
+																Servers ({servers?.length})
+															</SelectLabel>
+														</SelectGroup>
+													</SelectContent>
+												</Select>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+								)}
 								<FormField
 									control={form.control}
 									name="appName"
 									render={({ field }) => (
 										<FormItem>
-											<FormLabel>App Name</FormLabel>
+											<FormLabel className="flex items-center gap-2">
+												App Name
+												<TooltipProvider delayDuration={0}>
+													<Tooltip>
+														<TooltipTrigger asChild>
+															<HelpCircle className="size-4 text-muted-foreground" />
+														</TooltipTrigger>
+														<TooltipContent side="right">
+															<p>
+																This will be the name of the Docker Swarm
+																service
+															</p>
+														</TooltipContent>
+													</Tooltip>
+												</TooltipProvider>
+											</FormLabel>
 											<FormControl>
 												<Input placeholder="my-app" {...field} />
 											</FormControl>
@@ -496,7 +517,7 @@ export const AddDatabase = ({ projectId, projectName }: Props) => {
 												<Input
 													type="password"
 													placeholder="******************"
-													autoComplete="off"
+													autoComplete="one-time-code"
 													{...field}
 												/>
 											</FormControl>
