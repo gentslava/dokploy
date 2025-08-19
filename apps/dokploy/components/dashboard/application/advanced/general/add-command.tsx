@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -48,7 +48,7 @@ export const AddCommand = ({ applicationId }: Props) => {
 		defaultValues: {
 			command: "",
 		},
-		resolver: zodResolver(AddRedirectSchema),
+		resolver: standardSchemaResolver(AddRedirectSchema),
 	});
 
 	useEffect(() => {

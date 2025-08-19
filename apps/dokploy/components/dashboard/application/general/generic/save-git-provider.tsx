@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { KeyRoundIcon, LockIcon, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -37,14 +37,14 @@ import {
 import { api } from "@/utils/api";
 
 const GitProviderSchema = z.object({
-	buildPath: z.string().min(1, "Path is required").default("/"),
+	buildPath: z.string().min(1, "Path is required"),
 	repositoryURL: z.string().min(1, {
 		error: "Repository URL is required",
 	}),
 	branch: z.string().min(1, "Branch required"),
 	sshKey: z.string().optional(),
 	watchPaths: z.array(z.string()).optional(),
-	enableSubmodules: z.boolean().default(false),
+	enableSubmodules: z.boolean(),
 });
 
 type GitProvider = z.infer<typeof GitProviderSchema>;
@@ -70,7 +70,7 @@ export const SaveGitProvider = ({ applicationId }: Props) => {
 			watchPaths: [],
 			enableSubmodules: false,
 		},
-		resolver: zodResolver(GitProviderSchema),
+		resolver: standardSchemaResolver(GitProviderSchema),
 	});
 
 	useEffect(() => {

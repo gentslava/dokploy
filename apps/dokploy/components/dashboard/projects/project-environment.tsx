@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { FileIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -56,7 +56,7 @@ export const ProjectEnvironment = ({ projectId, children }: Props) => {
 		defaultValues: {
 			env: data?.env ?? "",
 		},
-		resolver: zodResolver(updateProjectSchema),
+		resolver: standardSchemaResolver(updateProjectSchema),
 	});
 	useEffect(() => {
 		if (data) {

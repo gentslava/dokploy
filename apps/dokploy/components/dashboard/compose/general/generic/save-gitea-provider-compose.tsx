@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { CheckIcon, ChevronsUpDown, Plus, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
@@ -60,7 +60,7 @@ const GiteaProviderSchema = z.object({
 	branch: z.string().min(1, "Branch is required"),
 	giteaId: z.string().min(1, "Gitea Provider is required"),
 	watchPaths: z.array(z.string()).optional(),
-	enableSubmodules: z.boolean().default(false),
+	enableSubmodules: z.boolean(),
 });
 
 type GiteaProvider = z.infer<typeof GiteaProviderSchema>;
@@ -87,7 +87,7 @@ export const SaveGiteaProviderCompose = ({ composeId }: Props) => {
 			watchPaths: [],
 			enableSubmodules: false,
 		},
-		resolver: zodResolver(GiteaProviderSchema),
+		resolver: standardSchemaResolver(GiteaProviderSchema),
 	});
 
 	const repository = form.watch("repository");

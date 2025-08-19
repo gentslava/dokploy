@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -64,7 +64,7 @@ export const IsolatedDeploymentTab = ({ composeId }: Props) => {
 		defaultValues: {
 			isolatedDeployment: false,
 		},
-		resolver: zodResolver(isolatedSchema),
+		resolver: standardSchemaResolver(isolatedSchema),
 	});
 
 	useEffect(() => {

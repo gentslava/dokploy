@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { Eye, EyeOff, LayoutDashboardIcon, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -113,7 +113,7 @@ export const SetupMonitoring = ({ serverId }: Props) => {
 	const services = extractServicesFromProjects(projects);
 
 	const form = useForm<Schema>({
-		resolver: zodResolver(Schema),
+		resolver: standardSchemaResolver(Schema),
 		defaultValues: {
 			metricsConfig: {
 				server: {

@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { PlusIcon } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
@@ -87,7 +87,7 @@ export const AddVolumes = ({
 			hostPath: "",
 			mountPath: serviceType === "compose" ? "/" : "",
 		},
-		resolver: zodResolver(mySchema),
+		resolver: standardSchemaResolver(mySchema),
 	});
 	const type = form.watch("type");
 

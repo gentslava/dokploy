@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import copy from "copy-to-clipboard";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -100,7 +100,7 @@ export const AddApiKey = () => {
 	});
 
 	const form = useForm<FormValues>({
-		resolver: zodResolver(formSchema),
+		resolver: standardSchemaResolver(formSchema),
 		defaultValues: {
 			name: "",
 			prefix: "",

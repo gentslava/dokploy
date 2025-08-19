@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { GlobeIcon } from "lucide-react";
 import { useTranslation } from "next-i18next";
 import { useEffect } from "react";
@@ -73,7 +73,7 @@ export const WebDomain = () => {
 			letsEncryptEmail: "",
 			https: false,
 		},
-		resolver: zodResolver(addServerDomain),
+		resolver: standardSchemaResolver(addServerDomain),
 	});
 	const https = form.watch("https");
 	useEffect(() => {

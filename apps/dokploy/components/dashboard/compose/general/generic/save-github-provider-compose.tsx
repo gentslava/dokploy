@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { CheckIcon, ChevronsUpDown, HelpCircle, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
@@ -58,8 +58,8 @@ const GithubProviderSchema = z.object({
 	branch: z.string().min(1, "Branch is required"),
 	githubId: z.string().min(1, "Github Provider is required"),
 	watchPaths: z.array(z.string()).optional(),
-	triggerType: z.enum(["push", "tag"]).default("push"),
-	enableSubmodules: z.boolean().default(false),
+	triggerType: z.enum(["push", "tag"]),
+	enableSubmodules: z.boolean(),
 });
 
 type GithubProvider = z.infer<typeof GithubProviderSchema>;
@@ -88,7 +88,7 @@ export const SaveGithubProviderCompose = ({ composeId }: Props) => {
 			triggerType: "push",
 			enableSubmodules: false,
 		},
-		resolver: zodResolver(GithubProviderSchema),
+		resolver: standardSchemaResolver(GithubProviderSchema),
 	});
 
 	const repository = form.watch("repository");

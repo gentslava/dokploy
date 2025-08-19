@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { Code2, Globe2, HardDrive } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -81,7 +81,7 @@ export const ShowImport = ({ composeId }: Props) => {
 		defaultValues: {
 			base64: "",
 		},
-		resolver: zodResolver(ImportSchema),
+		resolver: standardSchemaResolver(ImportSchema),
 	});
 
 	useEffect(() => {

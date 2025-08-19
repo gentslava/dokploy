@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -30,17 +30,17 @@ import { extractServices } from "@/pages/dashboard/project/[projectId]";
 import { api } from "@/utils/api";
 
 const addPermissions = z.object({
-	accessedProjects: z.array(z.string()).optional(),
-	accessedServices: z.array(z.string()).optional(),
-	canCreateProjects: z.boolean().optional().default(false),
-	canCreateServices: z.boolean().optional().default(false),
-	canDeleteProjects: z.boolean().optional().default(false),
-	canDeleteServices: z.boolean().optional().default(false),
-	canAccessToTraefikFiles: z.boolean().optional().default(false),
-	canAccessToDocker: z.boolean().optional().default(false),
-	canAccessToAPI: z.boolean().optional().default(false),
-	canAccessToSSHKeys: z.boolean().optional().default(false),
-	canAccessToGitProviders: z.boolean().optional().default(false),
+	accessedProjects: z.array(z.string()),
+	accessedServices: z.array(z.string()),
+	canCreateProjects: z.boolean(),
+	canCreateServices: z.boolean(),
+	canDeleteProjects: z.boolean(),
+	canDeleteServices: z.boolean(),
+	canAccessToTraefikFiles: z.boolean(),
+	canAccessToDocker: z.boolean(),
+	canAccessToAPI: z.boolean(),
+	canAccessToSSHKeys: z.boolean(),
+	canAccessToGitProviders: z.boolean(),
 });
 
 type AddPermissions = z.infer<typeof addPermissions>;
@@ -69,7 +69,7 @@ export const AddUserPermissions = ({ userId }: Props) => {
 			accessedProjects: [],
 			accessedServices: [],
 		},
-		resolver: zodResolver(addPermissions),
+		resolver: standardSchemaResolver(addPermissions),
 	});
 
 	useEffect(() => {

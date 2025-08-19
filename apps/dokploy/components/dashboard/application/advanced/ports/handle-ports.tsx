@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { PenBoxIcon, PlusIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -77,7 +77,7 @@ export const HandlePorts = ({
 			publishedPort: 0,
 			targetPort: 0,
 		},
-		resolver: zodResolver(AddPortSchema),
+		resolver: standardSchemaResolver(AddPortSchema),
 	});
 
 	const publishMode = useWatch({

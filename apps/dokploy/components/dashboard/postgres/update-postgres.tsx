@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { PenBox } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -58,7 +58,7 @@ export const UpdatePostgres = ({ postgresId }: Props) => {
 			description: data?.description ?? "",
 			name: data?.name ?? "",
 		},
-		resolver: zodResolver(updatePostgresSchema),
+		resolver: standardSchemaResolver(updatePostgresSchema),
 	});
 	useEffect(() => {
 		if (data) {

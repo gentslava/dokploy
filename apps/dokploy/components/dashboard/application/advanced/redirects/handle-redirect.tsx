@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { PenBoxIcon, PlusIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -37,13 +37,13 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/utils/api";
 
-const AddRedirectchema = z.object({
+const AddRedirectSchema = z.object({
 	regex: z.string().min(1, "Regex required"),
-	permanent: z.boolean().default(false),
+	permanent: z.boolean(),
 	replacement: z.string().min(1, "Replacement required"),
 });
 
-type AddRedirect = z.infer<typeof AddRedirectchema>;
+type AddRedirect = z.infer<typeof AddRedirectSchema>;
 
 // Default presets
 const redirectPresets = [
@@ -106,17 +106,17 @@ export const HandleRedirect = ({
 
 	const form = useForm<AddRedirect>({
 		defaultValues: {
-			permanent: false,
 			regex: "",
+			permanent: false,
 			replacement: "",
 		},
-		resolver: zodResolver(AddRedirectchema),
+		resolver: standardSchemaResolver(AddRedirectSchema),
 	});
 
 	useEffect(() => {
 		form.reset({
-			permanent: data?.permanent || false,
 			regex: data?.regex || "",
+			permanent: data?.permanent || false,
 			replacement: data?.replacement || "",
 		});
 	}, [form, form.reset, form.formState.isSubmitSuccessful, data]);

@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { Loader2, User } from "lucide-react";
 import { useTranslation } from "next-i18next";
 import { useEffect, useMemo, useState } from "react";
@@ -38,7 +38,7 @@ const profileSchema = z.object({
 	currentPassword: z.string().nullable(),
 	image: z.string().optional(),
 	name: z.string().optional(),
-	allowImpersonation: z.boolean().optional().default(false),
+	allowImpersonation: z.boolean().optional(),
 });
 
 type Profile = z.infer<typeof profileSchema>;
@@ -88,7 +88,7 @@ export const ProfileForm = () => {
 			allowImpersonation: data?.user?.allowImpersonation || false,
 			name: data?.user?.name || "",
 		},
-		resolver: zodResolver(profileSchema),
+		resolver: standardSchemaResolver(profileSchema),
 	});
 
 	useEffect(() => {

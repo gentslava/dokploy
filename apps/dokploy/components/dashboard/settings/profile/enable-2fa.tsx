@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { Fingerprint, QrCode } from "lucide-react";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
@@ -103,14 +103,14 @@ export const Enable2FA = () => {
 	};
 
 	const passwordForm = useForm<PasswordForm>({
-		resolver: zodResolver(PasswordSchema),
+		resolver: standardSchemaResolver(PasswordSchema),
 		defaultValues: {
 			password: "",
 		},
 	});
 
 	const pinForm = useForm<PinForm>({
-		resolver: zodResolver(PinSchema),
+		resolver: standardSchemaResolver(PinSchema),
 		defaultValues: {
 			pin: "",
 		},

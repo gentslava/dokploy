@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { CheckIcon, ChevronsUpDown, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
@@ -61,7 +61,7 @@ const GitlabProviderSchema = z.object({
 	branch: z.string().min(1, "Branch is required"),
 	gitlabId: z.string().min(1, "Gitlab Provider is required"),
 	watchPaths: z.array(z.string()).optional(),
-	enableSubmodules: z.boolean().default(false),
+	enableSubmodules: z.boolean(),
 });
 
 type GitlabProvider = z.infer<typeof GitlabProviderSchema>;
@@ -91,7 +91,7 @@ export const SaveGitlabProviderCompose = ({ composeId }: Props) => {
 			watchPaths: [],
 			enableSubmodules: false,
 		},
-		resolver: zodResolver(GitlabProviderSchema),
+		resolver: standardSchemaResolver(GitlabProviderSchema),
 	});
 
 	const repository = form.watch("repository");

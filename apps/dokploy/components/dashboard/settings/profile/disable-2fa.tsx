@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -39,7 +39,7 @@ export const Disable2FA = () => {
 	const [isLoading, setIsLoading] = useState(false);
 
 	const form = useForm<PasswordForm>({
-		resolver: zodResolver(PasswordSchema),
+		resolver: standardSchemaResolver(PasswordSchema),
 		defaultValues: {
 			password: "",
 		},

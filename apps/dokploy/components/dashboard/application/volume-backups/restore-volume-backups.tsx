@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import copy from "copy-to-clipboard";
 import { debounce } from "lodash";
 import { CheckIcon, ChevronsUpDown, Copy, RotateCcw } from "lucide-react";
@@ -89,7 +89,7 @@ export const RestoreVolumeBackups = ({ id, type, serverId }: Props) => {
 			backupFile: "",
 			volumeName: "",
 		},
-		resolver: zodResolver(RestoreBackupSchema),
+		resolver: standardSchemaResolver(RestoreBackupSchema),
 	});
 
 	const destinationId = form.watch("destinationId");

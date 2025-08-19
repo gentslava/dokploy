@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { PenBoxIcon } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -57,7 +57,7 @@ export const UpdateMysql = ({ mysqlId }: Props) => {
 			description: data?.description ?? "",
 			name: data?.name ?? "",
 		},
-		resolver: zodResolver(updateMysqlSchema),
+		resolver: standardSchemaResolver(updateMysqlSchema),
 	});
 	useEffect(() => {
 		if (data) {

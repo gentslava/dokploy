@@ -1,5 +1,5 @@
 import { IS_CLOUD, isAdminPresent, validateRequest } from "@dokploy/server";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { AlertTriangle } from "lucide-react";
 import type { GetServerSidePropsContext } from "next";
 import Link from "next/link";
@@ -83,7 +83,7 @@ const Register = ({ isCloud }: Props) => {
 			password: "",
 			confirmPassword: "",
 		},
-		resolver: zodResolver(registerSchema),
+		resolver: standardSchemaResolver(registerSchema),
 	});
 
 	useEffect(() => {

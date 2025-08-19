@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import {
 	DatabaseZap,
 	Info,
@@ -63,9 +63,9 @@ const formSchema = z
 	.object({
 		name: z.string().min(1, "Name is required"),
 		cronExpression: z.string().min(1, "Cron expression is required"),
-		shellType: z.enum(["bash", "sh"]).default("bash"),
+		shellType: z.enum(["bash", "sh"]),
 		command: z.string(),
-		enabled: z.boolean().default(true),
+		enabled: z.boolean(),
 		serviceName: z.string(),
 		scheduleType: z.enum([
 			"application",
@@ -121,7 +121,7 @@ export const HandleSchedules = ({ id, scheduleId, scheduleType }: Props) => {
 
 	const utils = api.useUtils();
 	const form = useForm<z.infer<typeof formSchema>>({
-		resolver: zodResolver(formSchema),
+		resolver: standardSchemaResolver(formSchema),
 		defaultValues: {
 			name: "",
 			cronExpression: "",

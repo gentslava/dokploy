@@ -1,5 +1,5 @@
 "use client";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { PenBoxIcon, PlusIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -66,7 +66,7 @@ export const HandleAi = ({ aiId }: Props) => {
 		: api.ai.create.useMutation();
 
 	const form = useForm<Schema>({
-		resolver: zodResolver(Schema),
+		resolver: standardSchemaResolver(Schema),
 		defaultValues: {
 			name: "",
 			apiUrl: "",

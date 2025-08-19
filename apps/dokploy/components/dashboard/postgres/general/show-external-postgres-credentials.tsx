@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -55,7 +55,7 @@ export const ShowExternalPostgresCredentials = ({ postgresId }: Props) => {
 
 	const form = useForm<DockerProvider>({
 		defaultValues: {},
-		resolver: zodResolver(DockerProviderSchema),
+		resolver: standardSchemaResolver(DockerProviderSchema),
 	});
 
 	useEffect(() => {

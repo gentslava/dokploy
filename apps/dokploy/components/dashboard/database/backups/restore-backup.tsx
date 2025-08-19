@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import copy from "copy-to-clipboard";
 import { debounce } from "lodash";
 import {
@@ -102,7 +102,7 @@ const RestoreBackupSchema = z
 		databaseType: z
 			.enum(["postgres", "mariadb", "mysql", "mongo", "web-server"])
 			.optional(),
-		backupType: z.enum(["database", "compose"]).default("database"),
+		backupType: z.enum(["database", "compose"]),
 		metadata: z
 			.object({
 				postgres: z
@@ -229,7 +229,7 @@ export const RestoreBackup = ({
 			backupType: backupType,
 			metadata: {},
 		},
-		resolver: zodResolver(RestoreBackupSchema),
+		resolver: standardSchemaResolver(RestoreBackupSchema),
 	});
 
 	const destionationId = form.watch("destinationId");

@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { CheckIcon, ChevronsUpDown, HelpCircle, Plus, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
@@ -49,7 +49,7 @@ import { cn } from "@/lib/utils";
 import { api } from "@/utils/api";
 
 const GitlabProviderSchema = z.object({
-	buildPath: z.string().min(1, "Path is required").default("/"),
+	buildPath: z.string().min(1, "Path is required"),
 	repository: z
 		.object({
 			repo: z.string().min(1, "Repo is required"),
@@ -61,7 +61,7 @@ const GitlabProviderSchema = z.object({
 	branch: z.string().min(1, "Branch is required"),
 	gitlabId: z.string().min(1, "Gitlab Provider is required"),
 	watchPaths: z.array(z.string()).optional(),
-	enableSubmodules: z.boolean().default(false),
+	enableSubmodules: z.boolean(),
 });
 
 type GitlabProvider = z.infer<typeof GitlabProviderSchema>;
@@ -90,7 +90,7 @@ export const SaveGitlabProvider = ({ applicationId }: Props) => {
 			branch: "",
 			enableSubmodules: false,
 		},
-		resolver: zodResolver(GitlabProviderSchema),
+		resolver: standardSchemaResolver(GitlabProviderSchema),
 	});
 
 	const repository = form.watch("repository");

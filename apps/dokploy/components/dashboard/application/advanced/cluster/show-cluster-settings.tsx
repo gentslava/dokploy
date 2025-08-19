@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { Server } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
@@ -86,7 +86,7 @@ export const ShowClusterSettings = ({ id, type }: Props) => {
 				: {}),
 			replicas: data?.replicas || 1,
 		},
-		resolver: zodResolver(AddRedirectchema),
+		resolver: standardSchemaResolver(AddRedirectchema),
 	});
 
 	useEffect(() => {

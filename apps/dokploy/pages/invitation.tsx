@@ -1,5 +1,5 @@
 import { getUserByToken, IS_CLOUD } from "@dokploy/server";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import type { GetServerSidePropsContext } from "next";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -96,7 +96,7 @@ const Invitation = ({
 			password: "",
 			confirmPassword: "",
 		},
-		resolver: zodResolver(registerSchema),
+		resolver: standardSchemaResolver(registerSchema),
 	});
 
 	useEffect(() => {

@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { Dices } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -83,7 +83,7 @@ export const AddPreviewDomain = ({
 		api.domain.generateDomain.useMutation();
 
 	const form = useForm<Domain>({
-		resolver: zodResolver(domain),
+		resolver: standardSchemaResolver(domain),
 	});
 
 	useEffect(() => {

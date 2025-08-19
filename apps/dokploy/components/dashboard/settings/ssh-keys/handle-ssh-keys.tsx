@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { DownloadIcon, PenBoxIcon, PlusIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -55,7 +55,7 @@ export const HandleSSHKeys = ({ sshKeyId }: Props) => {
 	const generateMutation = api.sshKey.generate.useMutation();
 
 	const form = useForm<SSHKey>({
-		resolver: zodResolver(sshKeyCreate),
+		resolver: standardSchemaResolver(sshKeyCreate),
 		defaultValues: {
 			name: "",
 			description: "",

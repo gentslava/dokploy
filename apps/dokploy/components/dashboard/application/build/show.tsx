@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { Cog } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -48,12 +48,12 @@ const mySchema = z.discriminatedUnion("buildType", [
 				error: "Dockerfile path is required",
 			})
 			.min(1, "Dockerfile required"),
-		dockerContextPath: z.string().nullable().default(""),
-		dockerBuildStage: z.string().nullable().default(""),
+		dockerContextPath: z.string().nullable(),
+		dockerBuildStage: z.string().nullable(),
 	}),
 	z.object({
 		buildType: z.literal(BuildType.heroku_buildpacks),
-		herokuVersion: z.string().nullable().default(""),
+		herokuVersion: z.string().nullable(),
 	}),
 	z.object({
 		buildType: z.literal(BuildType.paketo_buildpacks),
@@ -64,11 +64,11 @@ const mySchema = z.discriminatedUnion("buildType", [
 	}),
 	z.object({
 		buildType: z.literal(BuildType.railpack),
-		railpackVersion: z.string().nullable().default("0.2.2"),
+		railpackVersion: z.string().nullable(),
 	}),
 	z.object({
 		buildType: z.literal(BuildType.static),
-		isStaticSpa: z.boolean().default(false),
+		isStaticSpa: z.boolean(),
 	}),
 ]);
 
@@ -147,7 +147,7 @@ export const ShowBuildChooseForm = ({ applicationId }: Props) => {
 		defaultValues: {
 			buildType: BuildType.nixpacks,
 		},
-		resolver: zodResolver(mySchema),
+		resolver: standardSchemaResolver(mySchema),
 	});
 
 	const buildType = form.watch("buildType");

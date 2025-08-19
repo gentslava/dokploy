@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { AlertTriangle, Database, HelpCircle } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -52,7 +52,7 @@ import {
 import { slugify } from "@/lib/slug";
 import { api } from "@/utils/api";
 
-type DbType = typeof mySchema._type.type;
+type DbType = "postgres" | "mongo" | "redis" | "mysql" | "mariadb";
 
 const dockerImageDefaultPlaceholder: Record<DbType, string> = {
 	mongo: "mongo:6",
@@ -93,15 +93,15 @@ const mySchema = z.discriminatedUnion("type", [
 	z
 		.object({
 			type: z.literal("postgres"),
-			databaseName: z.string().default("postgres"),
-			databaseUser: z.string().default("postgres"),
+			databaseName: z.string(),
+			databaseUser: z.string(),
 		})
 		.extend(baseDatabaseSchema.shape),
 	z
 		.object({
 			type: z.literal("mongo"),
-			databaseUser: z.string().default("mongo"),
-			replicaSets: z.boolean().default(false),
+			databaseUser: z.string(),
+			replicaSets: z.boolean(),
 		})
 		.extend(baseDatabaseSchema.shape),
 	z
@@ -112,18 +112,18 @@ const mySchema = z.discriminatedUnion("type", [
 	z
 		.object({
 			type: z.literal("mysql"),
-			databaseRootPassword: z.string().default(""),
-			databaseUser: z.string().default("mysql"),
-			databaseName: z.string().default("mysql"),
+			databaseRootPassword: z.string(),
+			databaseUser: z.string(),
+			databaseName: z.string(),
 		})
 		.extend(baseDatabaseSchema.shape),
 	z
 		.object({
 			type: z.literal("mariadb"),
-			dockerImage: z.string().default("mariadb:4"),
-			databaseRootPassword: z.string().default(""),
-			databaseUser: z.string().default("mariadb"),
-			databaseName: z.string().default("mariadb"),
+			dockerImage: z.string(),
+			databaseRootPassword: z.string(),
+			databaseUser: z.string(),
+			databaseName: z.string(),
 		})
 		.extend(baseDatabaseSchema.shape),
 ]);
@@ -183,7 +183,7 @@ export const AddDatabase = ({ projectId, projectName }: Props) => {
 			databaseUser: "",
 			serverId: null,
 		},
-		resolver: zodResolver(mySchema),
+		resolver: standardSchemaResolver(mySchema),
 	});
 	const type = form.watch("type");
 	const activeMutation = {

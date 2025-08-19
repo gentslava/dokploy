@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { Folder, HelpCircle } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -86,7 +86,7 @@ export const AddApplication = ({ projectId, projectName }: Props) => {
 			appName: `${slug}-`,
 			description: "",
 		},
-		resolver: zodResolver(AddTemplateSchema),
+		resolver: standardSchemaResolver(AddTemplateSchema),
 	});
 
 	const onSubmit = async (data: AddTemplate) => {

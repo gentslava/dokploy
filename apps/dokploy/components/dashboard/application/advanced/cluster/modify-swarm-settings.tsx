@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { HelpCircle, Settings } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -205,7 +205,7 @@ export const AddSwarmSettings = ({ id, type }: Props) => {
 			labelsSwarm: null,
 			networkSwarm: null,
 		},
-		resolver: zodResolver(addSwarmSettings),
+		resolver: standardSchemaResolver(addSwarmSettings),
 	});
 
 	useEffect(() => {

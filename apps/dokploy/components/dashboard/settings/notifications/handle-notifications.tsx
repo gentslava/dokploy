@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import {
 	AlertTriangle,
 	Mail,
@@ -44,12 +44,12 @@ const notificationBaseSchema = z.object({
 	name: z.string().min(1, {
 		error: "Name is required",
 	}),
-	appDeploy: z.boolean().default(false),
-	appBuildError: z.boolean().default(false),
-	databaseBackup: z.boolean().default(false),
-	dokployRestart: z.boolean().default(false),
-	dockerCleanup: z.boolean().default(false),
-	serverThreshold: z.boolean().default(false),
+	appDeploy: z.boolean(),
+	appBuildError: z.boolean(),
+	databaseBackup: z.boolean(),
+	dokployRestart: z.boolean(),
+	dockerCleanup: z.boolean(),
+	serverThreshold: z.boolean(),
 });
 
 export const notificationSchema = z.discriminatedUnion("type", [
@@ -72,7 +72,7 @@ export const notificationSchema = z.discriminatedUnion("type", [
 		.object({
 			type: z.literal("discord"),
 			webhookUrl: z.string().min(1, { error: "Webhook URL is required" }),
-			decoration: z.boolean().default(true),
+			decoration: z.boolean(),
 		})
 		.extend(notificationBaseSchema.shape),
 	z
@@ -97,8 +97,8 @@ export const notificationSchema = z.discriminatedUnion("type", [
 			type: z.literal("gotify"),
 			serverUrl: z.string().min(1, { error: "Server URL is required" }),
 			appToken: z.string().min(1, { error: "App Token is required" }),
-			priority: z.number().min(1).max(10).default(5),
-			decoration: z.boolean().default(true),
+			priority: z.number().min(1).max(10),
+			decoration: z.boolean(),
 		})
 		.extend(notificationBaseSchema.shape),
 ]);
@@ -178,7 +178,7 @@ export const HandleNotifications = ({ notificationId }: Props) => {
 			channel: "",
 			name: "",
 		},
-		resolver: zodResolver(notificationSchema),
+		resolver: standardSchemaResolver(notificationSchema),
 	});
 	const type = form.watch("type");
 

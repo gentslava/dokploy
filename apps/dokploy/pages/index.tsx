@@ -1,6 +1,6 @@
 import { IS_CLOUD, isAdminPresent } from "@dokploy/server";
 import { validateRequest } from "@dokploy/server/lib/auth";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import type { GetServerSidePropsContext } from "next";
 import Link from "next/link";
@@ -65,7 +65,7 @@ export default function Home({ IS_CLOUD }: Props) {
 	const [isGithubLoading, setIsGithubLoading] = useState(false);
 	const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 	const loginForm = useForm<LoginForm>({
-		resolver: zodResolver(LoginSchema),
+		resolver: standardSchemaResolver(LoginSchema),
 		defaultValues: {
 			email: "",
 			password: "",

@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -57,7 +57,7 @@ export const AddBitbucketProvider = () => {
 			password: "",
 			workspaceName: "",
 		},
-		resolver: zodResolver(Schema),
+		resolver: standardSchemaResolver(Schema),
 	});
 
 	useEffect(() => {

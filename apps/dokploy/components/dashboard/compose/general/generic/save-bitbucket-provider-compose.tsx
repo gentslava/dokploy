@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { CheckIcon, ChevronsUpDown, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
@@ -59,7 +59,7 @@ const BitbucketProviderSchema = z.object({
 	branch: z.string().min(1, "Branch is required"),
 	bitbucketId: z.string().min(1, "Bitbucket Provider is required"),
 	watchPaths: z.array(z.string()).optional(),
-	enableSubmodules: z.boolean().default(false),
+	enableSubmodules: z.boolean(),
 });
 
 type BitbucketProvider = z.infer<typeof BitbucketProviderSchema>;
@@ -88,7 +88,7 @@ export const SaveBitbucketProviderCompose = ({ composeId }: Props) => {
 			watchPaths: [],
 			enableSubmodules: false,
 		},
-		resolver: zodResolver(BitbucketProviderSchema),
+		resolver: standardSchemaResolver(BitbucketProviderSchema),
 	});
 
 	const repository = form.watch("repository");

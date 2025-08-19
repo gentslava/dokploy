@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -56,7 +56,7 @@ export const ShowTraefikFile = ({ path, serverId }: Props) => {
 			traefikConfig: "",
 		},
 		disabled: canEdit,
-		resolver: zodResolver(UpdateServerMiddlewareConfigSchema),
+		resolver: standardSchemaResolver(UpdateServerMiddlewareConfigSchema),
 	});
 
 	useEffect(() => {

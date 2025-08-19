@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { Settings } from "lucide-react";
 import { useTranslation } from "next-i18next";
 import { useForm } from "react-hook-form";
@@ -56,7 +56,7 @@ const LocalServerConfig = ({ onSave }: Props) => {
 
 	const form = useForm<Schema>({
 		defaultValues: getLocalServerData(),
-		resolver: zodResolver(Schema),
+		resolver: standardSchemaResolver(Schema),
 	});
 
 	const onSubmit = (data: Schema) => {

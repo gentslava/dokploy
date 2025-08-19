@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { HelpCircle, PlusIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -73,7 +73,7 @@ export const AddCertificate = () => {
 			privateKey: "",
 			autoRenew: false,
 		},
-		resolver: zodResolver(addCertificate),
+		resolver: standardSchemaResolver(addCertificate),
 	});
 	useEffect(() => {
 		form.reset();

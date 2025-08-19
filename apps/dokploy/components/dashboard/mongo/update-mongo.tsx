@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { PenBoxIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -58,7 +58,7 @@ export const UpdateMongo = ({ mongoId }: Props) => {
 			description: data?.description ?? "",
 			name: data?.name ?? "",
 		},
-		resolver: zodResolver(updateMongoSchema),
+		resolver: standardSchemaResolver(updateMongoSchema),
 	});
 	useEffect(() => {
 		if (data) {

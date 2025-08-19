@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { AlertTriangle, PenBoxIcon, PlusIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -90,7 +90,7 @@ export const HandleRegistry = ({ registryId }: Props) => {
 			registryName: "",
 			serverId: "",
 		},
-		resolver: zodResolver(AddRegistrySchema),
+		resolver: standardSchemaResolver(AddRegistrySchema),
 	});
 
 	const password = form.watch("password");

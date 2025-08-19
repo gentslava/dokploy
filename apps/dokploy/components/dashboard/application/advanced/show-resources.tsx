@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { InfoIcon } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -87,7 +87,7 @@ export const ShowResources = ({ id, type }: Props) => {
 			memoryLimit: "",
 			memoryReservation: "",
 		},
-		resolver: zodResolver(addResourcesSchema),
+		resolver: standardSchemaResolver(addResourcesSchema),
 	});
 
 	useEffect(() => {

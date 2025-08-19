@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import {
 	DatabaseZap,
 	Info,
@@ -56,8 +56,8 @@ const formSchema = z
 		volumeName: z.string().min(1, "Volume name is required"),
 		prefix: z.string(),
 		// keepLatestCount: z.coerce.number().optional(),
-		turnOff: z.boolean().default(false),
-		enabled: z.boolean().default(true),
+		turnOff: z.boolean(),
+		enabled: z.boolean(),
 		serviceType: z.enum([
 			"application",
 			"compose",
@@ -111,7 +111,7 @@ export const HandleVolumeBackups = ({
 
 	const utils = api.useUtils();
 	const form = useForm<z.infer<typeof formSchema>>({
-		resolver: zodResolver(formSchema),
+		resolver: standardSchemaResolver(formSchema),
 		defaultValues: {
 			name: "",
 			cronExpression: "",

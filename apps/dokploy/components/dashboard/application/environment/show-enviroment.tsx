@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { type CSSProperties, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -68,7 +68,7 @@ export const ShowEnvironment = ({ id, type }: Props) => {
 		defaultValues: {
 			environment: "",
 		},
-		resolver: zodResolver(addEnvironmentSchema),
+		resolver: standardSchemaResolver(addEnvironmentSchema),
 	});
 
 	// Watch form value

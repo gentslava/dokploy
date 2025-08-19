@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -69,7 +69,7 @@ export const CreateServer = ({ stepper }: Props) => {
 			username: "root",
 			sshKeyId: cloudSSHKey?.sshKeyId || "",
 		},
-		resolver: zodResolver(Schema),
+		resolver: standardSchemaResolver(Schema),
 	});
 
 	useEffect(() => {

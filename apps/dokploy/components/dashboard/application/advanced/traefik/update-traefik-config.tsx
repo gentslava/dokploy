@@ -1,4 +1,4 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import jsyaml from "js-yaml";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -73,7 +73,7 @@ export const UpdateTraefikConfig = ({ applicationId }: Props) => {
 		defaultValues: {
 			traefikConfig: "",
 		},
-		resolver: zodResolver(UpdateTraefikConfigSchema),
+		resolver: standardSchemaResolver(UpdateTraefikConfigSchema),
 	});
 
 	useEffect(() => {
