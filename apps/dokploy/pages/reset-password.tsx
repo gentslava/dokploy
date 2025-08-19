@@ -28,22 +28,22 @@ const loginSchema = z
 		password: z
 			.string()
 			.min(1, {
-				message: "Password is required",
+				error: "Password is required",
 			})
 			.min(8, {
-				message: "Password must be at least 8 characters",
+				error: "Password must be at least 8 characters",
 			}),
 		confirmPassword: z
 			.string()
 			.min(1, {
-				message: "Password is required",
+				error: "Password is required",
 			})
 			.min(8, {
-				message: "Password must be at least 8 characters",
+				error: "Password must be at least 8 characters",
 			}),
 	})
 	.refine((data) => data.password === data.confirmPassword, {
-		message: "Passwords do not match",
+		error: "Passwords do not match",
 		path: ["confirmPassword"],
 	});
 

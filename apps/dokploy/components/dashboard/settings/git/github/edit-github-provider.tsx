@@ -28,7 +28,7 @@ import { api } from "@/utils/api";
 
 const Schema = z.object({
 	name: z.string().min(1, {
-		message: "Name is required",
+		error: "Name is required",
 	}),
 });
 

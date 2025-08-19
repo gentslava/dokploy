@@ -47,27 +47,27 @@ const Schema = z.object({
 	metricsConfig: z.object({
 		server: z.object({
 			refreshRate: z.number().min(2, {
-				message: "Server Refresh Rate is required",
+				error: "Server Refresh Rate is required",
 			}),
 			port: z.number().min(1, {
-				message: "Port is required",
+				error: "Port is required",
 			}),
 			token: z.string(),
 			urlCallback: z.string(),
 			retentionDays: z.number().min(1, {
-				message: "Retention days must be at least 1",
+				error: "Retention days must be at least 1",
 			}),
 			thresholds: z.object({
 				cpu: z.number().min(0),
 				memory: z.number().min(0),
 			}),
 			cronJob: z.string().min(1, {
-				message: "Cron Job is required",
+				error: "Cron Job is required",
 			}),
 		}),
 		containers: z.object({
 			refreshRate: z.number().min(2, {
-				message: "Container Refresh Rate is required",
+				error: "Container Refresh Rate is required",
 			}),
 			services: z.object({
 				include: z.array(z.string()).optional(),

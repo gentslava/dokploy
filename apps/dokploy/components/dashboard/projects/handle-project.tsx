@@ -41,12 +41,12 @@ const AddProjectSchema = z.object({
 				return validNameRegex.test(trimmedName);
 			},
 			{
-				message:
+				error:
 					"Project name must start and end with a letter, number, hyphen or underscore. Spaces are allowed in between.",
 			},
 		)
 		.refine((name) => !/^\d/.test(name.trim()), {
-			message: "Project name cannot start with a number",
+			error: "Project name cannot start with a number",
 		})
 		.transform((name) => name.trim()),
 	description: z.string().optional(),

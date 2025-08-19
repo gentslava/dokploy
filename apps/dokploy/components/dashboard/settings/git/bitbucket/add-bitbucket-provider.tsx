@@ -31,13 +31,13 @@ import { useUrl } from "@/utils/hooks/use-url";
 
 const Schema = z.object({
 	name: z.string().min(1, {
-		message: "Name is required",
+		error: "Name is required",
 	}),
 	username: z.string().min(1, {
-		message: "Username is required",
+		error: "Username is required",
 	}),
 	password: z.string().min(1, {
-		message: "App Password is required",
+		error: "App Password is required",
 	}),
 	workspaceName: z.string().optional(),
 });

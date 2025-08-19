@@ -45,8 +45,7 @@ const mySchema = z.discriminatedUnion("buildType", [
 		buildType: z.literal(BuildType.dockerfile),
 		dockerfile: z
 			.string({
-				required_error: "Dockerfile path is required",
-				invalid_type_error: "Dockerfile path is required",
+				error: "Dockerfile path is required",
 			})
 			.min(1, "Dockerfile required"),
 		dockerContextPath: z.string().nullable().default(""),

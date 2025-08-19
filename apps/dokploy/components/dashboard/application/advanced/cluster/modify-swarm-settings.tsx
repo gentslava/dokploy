@@ -33,93 +33,73 @@ import {
 } from "@/components/ui/tooltip";
 import { api } from "@/utils/api";
 
-const HealthCheckSwarmSchema = z
-	.object({
-		Test: z.array(z.string()).optional(),
-		Interval: z.number().optional(),
-		Timeout: z.number().optional(),
-		StartPeriod: z.number().optional(),
-		Retries: z.number().optional(),
-	})
-	.strict();
+const HealthCheckSwarmSchema = z.strictObject({
+	Test: z.array(z.string()).optional(),
+	Interval: z.number().optional(),
+	Timeout: z.number().optional(),
+	StartPeriod: z.number().optional(),
+	Retries: z.number().optional(),
+});
 
-const RestartPolicySwarmSchema = z
-	.object({
-		Condition: z.string().optional(),
-		Delay: z.number().optional(),
-		MaxAttempts: z.number().optional(),
-		Window: z.number().optional(),
-	})
-	.strict();
+const RestartPolicySwarmSchema = z.strictObject({
+	Condition: z.string().optional(),
+	Delay: z.number().optional(),
+	MaxAttempts: z.number().optional(),
+	Window: z.number().optional(),
+});
 
-const PreferenceSchema = z
-	.object({
-		Spread: z.object({
-			SpreadDescriptor: z.string(),
-		}),
-	})
-	.strict();
+const PreferenceSchema = z.strictObject({
+	Spread: z.strictObject({
+		SpreadDescriptor: z.string(),
+	}),
+});
 
-const PlatformSchema = z
-	.object({
-		Architecture: z.string(),
-		OS: z.string(),
-	})
-	.strict();
+const PlatformSchema = z.strictObject({
+	Architecture: z.string(),
+	OS: z.string(),
+});
 
-const PlacementSwarmSchema = z
-	.object({
-		Constraints: z.array(z.string()).optional(),
-		Preferences: z.array(PreferenceSchema).optional(),
-		MaxReplicas: z.number().optional(),
-		Platforms: z.array(PlatformSchema).optional(),
-	})
-	.strict();
+const PlacementSwarmSchema = z.strictObject({
+	Constraints: z.array(z.string()).optional(),
+	Preferences: z.array(PreferenceSchema).optional(),
+	MaxReplicas: z.number().optional(),
+	Platforms: z.array(PlatformSchema).optional(),
+});
 
-const UpdateConfigSwarmSchema = z
-	.object({
-		Parallelism: z.number(),
-		Delay: z.number().optional(),
-		FailureAction: z.string().optional(),
-		Monitor: z.number().optional(),
-		MaxFailureRatio: z.number().optional(),
-		Order: z.string(),
-	})
-	.strict();
+const UpdateConfigSwarmSchema = z.strictObject({
+	Parallelism: z.number(),
+	Delay: z.number().optional(),
+	FailureAction: z.string().optional(),
+	Monitor: z.number().optional(),
+	MaxFailureRatio: z.number().optional(),
+	Order: z.string(),
+});
 
-const ReplicatedSchema = z
-	.object({
-		Replicas: z.number().optional(),
-	})
-	.strict();
+const ReplicatedSchema = z.strictObject({
+	Replicas: z.number().optional(),
+});
 
-const ReplicatedJobSchema = z
-	.object({
-		MaxConcurrent: z.number().optional(),
-		TotalCompletions: z.number().optional(),
-	})
-	.strict();
+const ReplicatedJobSchema = z.strictObject({
+	MaxConcurrent: z.number().optional(),
+	TotalCompletions: z.number().optional(),
+});
 
-const ServiceModeSwarmSchema = z
-	.object({
-		Replicated: ReplicatedSchema.optional(),
-		Global: z.object({}).optional(),
-		ReplicatedJob: ReplicatedJobSchema.optional(),
-		GlobalJob: z.object({}).optional(),
-	})
-	.strict();
+const ServiceModeSwarmSchema = z.strictObject({
+	Replicated: ReplicatedSchema.optional(),
+	Global: z.strictObject({}).optional(),
+	ReplicatedJob: ReplicatedJobSchema.optional(),
+	GlobalJob: z.strictObject({}).optional(),
+});
 
 const NetworkSwarmSchema = z.array(
-	z
-		.object({
-			Target: z.string().optional(),
-			Aliases: z.array(z.string()).optional(),
-			DriverOpts: z.object({}).optional(),
-		})
-		.strict(),
+	z.strictObject({
+		Target: z.string().optional(),
+		Aliases: z.array(z.string()).optional(),
+		DriverOpts: z.strictObject({}).optional(),
+	}),
 );
 
-const LabelsSwarmSchema = z.record(z.string());
+const LabelsSwarmSchema = z.record(z.string(), z.string());
 
 const createStringToJSONSchema = (schema: z.ZodTypeAny) => {
 	return z

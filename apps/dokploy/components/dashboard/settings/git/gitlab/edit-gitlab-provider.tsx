@@ -28,11 +28,9 @@ import { api } from "@/utils/api";
 
 const Schema = z.object({
 	name: z.string().min(1, {
-		message: "Name is required",
+		error: "Name is required",
 	}),
-	gitlabUrl: z.string().url({
-		message: "Invalid Gitlab URL",
-	}),
+	gitlabUrl: z.url({ error: "Invalid Gitlab URL" }),
 	groupName: z.string().optional(),
 });
 

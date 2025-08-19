@@ -41,16 +41,16 @@ import { api } from "@/utils/api";
 
 const Schema = z.object({
 	name: z.string().min(1, {
-		message: "Name is required",
+		error: "Name is required",
 	}),
 	description: z.string().optional(),
 	ipAddress: z.string().min(1, {
-		message: "IP Address is required",
+		error: "IP Address is required",
 	}),
 	port: z.number().optional(),
 	username: z.string().optional(),
 	sshKeyId: z.string().min(1, {
-		message: "SSH Key is required",
+		error: "SSH Key is required",
 	}),
 });
 

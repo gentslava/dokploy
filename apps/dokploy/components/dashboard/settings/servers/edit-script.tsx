@@ -32,7 +32,7 @@ interface Props {
 
 const schema = z.object({
 	command: z.string().min(1, {
-		message: "Command is required",
+		error: "Command is required",
 	}),
 });
 

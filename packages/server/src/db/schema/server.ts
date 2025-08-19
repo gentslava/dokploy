@@ -173,7 +173,7 @@ export const apiUpdateServerMonitoring = createSchema
 					refreshRate: z.number().min(2),
 					port: z.number().min(1),
 					token: z.string(),
-					urlCallback: z.string().url(),
+					urlCallback: z.url(),
 					retentionDays: z.number().min(1),
 					cronJob: z.string().min(1),
 					thresholds: z.object({

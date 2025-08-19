@@ -46,14 +46,14 @@ export type CacheType = "fetch" | "cache";
 
 export const domain = z
 	.object({
-		host: z.string().min(1, { message: "Add a hostname" }),
+		host: z.string().min(1, { error: "Add a hostname" }),
 		path: z.string().min(1).optional(),
 		internalPath: z.string().optional(),
 		stripPath: z.boolean().optional(),
 		port: z
 			.number()
-			.min(1, { message: "Port must be at least 1" })
-			.max(65535, { message: "Port must be 65535 or below" })
+			.min(1, { error: "Port must be at least 1" })
+			.max(65535, { error: "Port must be 65535 or below" })
 			.optional(),
 		https: z.boolean().optional(),
 		certificateType: z.enum(["letsencrypt", "none", "custom"]).optional(),

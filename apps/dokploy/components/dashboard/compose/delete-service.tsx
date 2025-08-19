@@ -33,7 +33,7 @@ import { api } from "@/utils/api";
 
 const deleteComposeSchema = z.object({
 	projectName: z.string().min(1, {
-		message: "Compose name is required",
+		error: "Compose name is required",
 	}),
 	deleteVolumes: z.boolean(),
 });

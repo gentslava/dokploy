@@ -17,7 +17,7 @@ import { api } from "@/utils/api";
 
 const DockerProviderSchema = z.object({
 	dockerImage: z.string().min(1, {
-		message: "Docker image is required",
+		error: "Docker image is required",
 	}),
 	username: z.string().optional(),
 	password: z.string().optional(),

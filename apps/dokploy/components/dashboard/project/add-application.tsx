@@ -46,15 +46,15 @@ import { api } from "@/utils/api";
 
 const AddTemplateSchema = z.object({
 	name: z.string().min(1, {
-		message: "Name is required",
+		error: "Name is required",
 	}),
 	appName: z
 		.string()
 		.min(1, {
-			message: "App name is required",
+			error: "App name is required",
 		})
 		.regex(/^[a-z](?!.*--)([a-z0-9-]*[a-z])?$/, {
-			message:
+			error:
 				"App name supports lowercase letters, numbers, '-' and can only start and end letters, and does not support continuous '-'",
 		}),
 	description: z.string().optional(),

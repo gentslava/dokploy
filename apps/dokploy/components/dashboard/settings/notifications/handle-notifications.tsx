@@ -42,7 +42,7 @@ import { api } from "@/utils/api";
 
 const notificationBaseSchema = z.object({
 	name: z.string().min(1, {
-		message: "Name is required",
+		error: "Name is required",
 	}),
 	appDeploy: z.boolean().default(false),
 	appBuildError: z.boolean().default(false),
@@ -56,51 +56,51 @@ export const notificationSchema = z.discriminatedUnion("type", [
 	z
 		.object({
 			type: z.literal("slack"),
-			webhookUrl: z.string().min(1, { message: "Webhook URL is required" }),
+			webhookUrl: z.string().min(1, { error: "Webhook URL is required" }),
 			channel: z.string(),
 		})
-		.merge(notificationBaseSchema),
+		.extend(notificationBaseSchema.shape),
 	z
 		.object({
 			type: z.literal("telegram"),
-			botToken: z.string().min(1, { message: "Bot Token is required" }),
-			chatId: z.string().min(1, { message: "Chat ID is required" }),
+			botToken: z.string().min(1, { error: "Bot Token is required" }),
+			chatId: z.string().min(1, { error: "Chat ID is required" }),
 			messageThreadId: z.string().optional(),
 		})
-		.merge(notificationBaseSchema),
+		.extend(notificationBaseSchema.shape),
 	z
 		.object({
 			type: z.literal("discord"),
-			webhookUrl: z.string().min(1, { message: "Webhook URL is required" }),
+			webhookUrl: z.string().min(1, { error: "Webhook URL is required" }),
 			decoration: z.boolean().default(true),
 		})
-		.merge(notificationBaseSchema),
+		.extend(notificationBaseSchema.shape),
 	z
 		.object({
 			type: z.literal("email"),
-			smtpServer: z.string().min(1, { message: "SMTP Server is required" }),
-			smtpPort: z.number().min(1, { message: "SMTP Port is required" }),
-			username: z.string().min(1, { message: "Username is required" }),
-			password: z.string().min(1, { message: "Password is required" }),
-			fromAddress: z.string().min(1, { message: "From Address is required" }),
+			smtpServer: z.string().min(1, { error: "SMTP Server is required" }),
+			smtpPort: z.number().min(1, { error: "SMTP Port is required" }),
+			username: z.string().min(1, { error: "Username is required" }),
+			password: z.string().min(1, { error: "Password is required" }),
+			fromAddress: z.string().min(1, { error: "From Address is required" }),
 			toAddresses: z
 				.array(
-					z.string().min(1, { message: "Email is required" }).email({
-						message: "Email is invalid",
+					z.string().min(1, { error: "Email is required" }).email({
+						error: "Email is invalid",
 					}),
 				)
-				.min(1, { message: "At least one email is required" }),
+				.min(1, { error: "At least one email is required" }),
 		})
-		.merge(notificationBaseSchema),
+		.extend(notificationBaseSchema.shape),
 	z
 		.object({
 			type: z.literal("gotify"),
-			serverUrl: z.string().min(1, { message: "Server URL is required" }),
-			appToken: z.string().min(1, { message: "App Token is required" }),
+			serverUrl: z.string().min(1, { error: "Server URL is required" }),
+			appToken: z.string().min(1, { error: "App Token is required" }),
 			priority: z.number().min(1).max(10).default(5),
 			decoration: z.boolean().default(true),
 		})
-		.merge(notificationBaseSchema),
+		.extend(notificationBaseSchema.shape),
 ]);
 
 export const notificationsMap = {

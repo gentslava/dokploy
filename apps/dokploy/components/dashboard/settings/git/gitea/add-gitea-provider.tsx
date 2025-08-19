@@ -34,19 +34,19 @@ import { useUrl } from "@/utils/hooks/use-url";
 
 const Schema = z.object({
 	name: z.string().min(1, {
-		message: "Name is required",
+		error: "Name is required",
 	}),
 	giteaUrl: z.string().min(1, {
-		message: "Gitea URL is required",
+		error: "Gitea URL is required",
 	}),
 	clientId: z.string().min(1, {
-		message: "Client ID is required",
+		error: "Client ID is required",
 	}),
 	clientSecret: z.string().min(1, {
-		message: "Client Secret is required",
+		error: "Client Secret is required",
 	}),
 	redirectUri: z.string().min(1, {
-		message: "Redirect URI is required",
+		error: "Redirect URI is required",
 	}),
 	organizationName: z.string().optional(),
 });

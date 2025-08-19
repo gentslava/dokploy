@@ -27,10 +27,10 @@ const loginSchema = z.object({
 	email: z
 		.string()
 		.min(1, {
-			message: "Email is required",
+			error: "Email is required",
 		})
 		.email({
-			message: "Email must be a valid email",
+			error: "Email must be a valid email",
 		}),
 });
 

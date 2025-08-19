@@ -36,10 +36,10 @@ import { Switch } from "@/components/ui/switch";
 import { api } from "@/utils/api";
 
 const Schema = z.object({
-	name: z.string().min(1, { message: "Name is required" }),
-	apiUrl: z.string().url({ message: "Please enter a valid URL" }),
-	apiKey: z.string().min(1, { message: "API Key is required" }),
-	model: z.string().min(1, { message: "Model is required" }),
+	name: z.string().min(1, { error: "Name is required" }),
+	apiUrl: z.url({ error: "Please enter a valid URL" }),
+	apiKey: z.string().min(1, { error: "API Key is required" }),
+	model: z.string().min(1, { error: "Model is required" }),
 	isEnabled: z.boolean(),
 });
 

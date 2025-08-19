@@ -55,20 +55,20 @@ const mySchema = z.discriminatedUnion("type", [
 			type: z.literal("bind"),
 			hostPath: z.string().min(1, "Host path required"),
 		})
-		.merge(mountSchema),
+		.extend(mountSchema.shape),
 	z
 		.object({
 			type: z.literal("volume"),
 			volumeName: z.string().min(1, "Volume name required"),
 		})
-		.merge(mountSchema),
+		.extend(mountSchema.shape),
 	z
 		.object({
 			type: z.literal("file"),
 			filePath: z.string().min(1, "File path required"),
 			content: z.string().optional(),
 		})
-		.merge(mountSchema),
+		.extend(mountSchema.shape),
 ]);
 
 type AddMount = z.infer<typeof mySchema>;

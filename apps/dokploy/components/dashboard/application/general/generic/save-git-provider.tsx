@@ -39,7 +39,7 @@ import { api } from "@/utils/api";
 const GitProviderSchema = z.object({
 	buildPath: z.string().min(1, "Path is required").default("/"),
 	repositoryURL: z.string().min(1, {
-		message: "Repository URL is required",
+		error: "Repository URL is required",
 	}),
 	branch: z.string().min(1, "Branch required"),
 	sshKey: z.string().optional(),

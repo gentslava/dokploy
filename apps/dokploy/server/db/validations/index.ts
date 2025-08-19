@@ -10,7 +10,7 @@ export const sshKeyCreate = z.object({
 			return rsaPubPattern.test(key) || ed25519PubPattern.test(key);
 		},
 		{
-			message: "Invalid public key format",
+			error: "Invalid public key format",
 		},
 	),
 	privateKey: z.string().refine(
@@ -22,7 +22,7 @@ export const sshKeyCreate = z.object({
 			return rsaPrivPattern.test(key) || ed25519PrivPattern.test(key);
 		},
 		{
-			message: "Invalid private key format",
+			error: "Invalid private key format",
 		},
 	),
 });

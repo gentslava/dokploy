@@ -27,39 +27,39 @@ import { api } from "@/utils/api";
 const registerSchema = z
 	.object({
 		name: z.string().min(1, {
-			message: "Name is required",
+			error: "Name is required",
 		}),
 		email: z
 			.string()
 			.min(1, {
-				message: "Email is required",
+				error: "Email is required",
 			})
 			.email({
-				message: "Email must be a valid email",
+				error: "Email must be a valid email",
 			}),
 		password: z
 			.string()
 			.min(1, {
-				message: "Password is required",
+				error: "Password is required",
 			})
 			.refine((password) => password === "" || password.length >= 8, {
-				message: "Password must be at least 8 characters",
+				error: "Password must be at least 8 characters",
 			}),
 		confirmPassword: z
 			.string()
 			.min(1, {
-				message: "Password is required",
+				error: "Password is required",
 			})
 			.refine(
 				(confirmPassword) =>
 					confirmPassword === "" || confirmPassword.length >= 8,
 				{
-					message: "Password must be at least 8 characters",
+					error: "Password must be at least 8 characters",
 				},
 			),
 	})
 	.refine((data) => data.password === data.confirmPassword, {
-		message: "Passwords do not match",
+		error: "Passwords do not match",
 		path: ["confirmPassword"],
 	});
 

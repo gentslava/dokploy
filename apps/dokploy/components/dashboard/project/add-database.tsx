@@ -77,10 +77,10 @@ const baseDatabaseSchema = z.object({
 	appName: z
 		.string()
 		.min(1, {
-			message: "App name is required",
+			error: "App name is required",
 		})
 		.regex(/^[a-z](?!.*--)([a-z0-9-]*[a-z])?$/, {
-			message:
+			error:
 				"App name supports lowercase letters, numbers, '-' and can only start and end letters, and does not support continuous '-'",
 		}),
 	databasePassword: z.string(),
@@ -96,19 +96,19 @@ const mySchema = z.discriminatedUnion("type", [
 			databaseName: z.string().default("postgres"),
 			databaseUser: z.string().default("postgres"),
 		})
-		.merge(baseDatabaseSchema),
+		.extend(baseDatabaseSchema.shape),
 	z
 		.object({
 			type: z.literal("mongo"),
 			databaseUser: z.string().default("mongo"),
 			replicaSets: z.boolean().default(false),
 		})
-		.merge(baseDatabaseSchema),
+		.extend(baseDatabaseSchema.shape),
 	z
 		.object({
 			type: z.literal("redis"),
 		})
-		.merge(baseDatabaseSchema),
+		.extend(baseDatabaseSchema.shape),
 	z
 		.object({
 			type: z.literal("mysql"),
@@ -116,7 +116,7 @@ const mySchema = z.discriminatedUnion("type", [
 			databaseUser: z.string().default("mysql"),
 			databaseName: z.string().default("mysql"),
 		})
-		.merge(baseDatabaseSchema),
+		.extend(baseDatabaseSchema.shape),
 	z
 		.object({
 			type: z.literal("mariadb"),
@@ -125,7 +125,7 @@ const mySchema = z.discriminatedUnion("type", [
 			databaseUser: z.string().default("mariadb"),
 			databaseName: z.string().default("mariadb"),
 		})
-		.merge(baseDatabaseSchema),
+		.extend(baseDatabaseSchema.shape),
 ]);
 
 const databasesMap = {

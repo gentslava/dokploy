@@ -29,7 +29,7 @@ import { api } from "@/utils/api";
 
 const updateMysqlSchema = z.object({
 	name: z.string().min(1, {
-		message: "Name is required",
+		error: "Name is required",
 	}),
 	description: z.string().optional(),
 });

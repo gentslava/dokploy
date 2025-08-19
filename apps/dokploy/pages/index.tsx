@@ -39,7 +39,7 @@ import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
 
 const LoginSchema = z.object({
-	email: z.string().email(),
+	email: z.email(),
 	password: z.string().min(8),
 });
 

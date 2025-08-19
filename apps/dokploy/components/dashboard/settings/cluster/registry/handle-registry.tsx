@@ -37,13 +37,13 @@ import { api } from "@/utils/api";
 
 const AddRegistrySchema = z.object({
 	registryName: z.string().min(1, {
-		message: "Registry name is required",
+		error: "Registry name is required",
 	}),
 	username: z.string().min(1, {
-		message: "Username is required",
+		error: "Username is required",
 	}),
 	password: z.string().min(1, {
-		message: "Password is required",
+		error: "Password is required",
 	}),
 	registryUrl: z.string(),
 	imagePrefix: z.string(),

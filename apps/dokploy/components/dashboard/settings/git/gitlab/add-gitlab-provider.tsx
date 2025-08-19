@@ -30,20 +30,20 @@ import { useUrl } from "@/utils/hooks/use-url";
 
 const Schema = z.object({
 	name: z.string().min(1, {
-		message: "Name is required",
+		error: "Name is required",
 	}),
 	gitlabUrl: z.string().min(1, {
-		message: "GitLab URL is required",
+		error: "GitLab URL is required",
 	}),
 	applicationId: z.string().min(1, {
-		message: "Application ID is required",
+		error: "Application ID is required",
 	}),
 	applicationSecret: z.string().min(1, {
-		message: "Application Secret is required",
+		error: "Application Secret is required",
 	}),
 
 	redirectUri: z.string().min(1, {
-		message: "Redirect URI is required",
+		error: "Redirect URI is required",
 	}),
 	groupName: z.string().optional(),
 });

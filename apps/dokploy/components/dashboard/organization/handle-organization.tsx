@@ -28,7 +28,7 @@ import { api } from "@/utils/api";
 
 const organizationSchema = z.object({
 	name: z.string().min(1, {
-		message: "Organization name is required",
+		error: "Organization name is required",
 	}),
 	logo: z.string().optional(),
 });

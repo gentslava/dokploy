@@ -27,7 +27,7 @@ import { api } from "@/utils/api";
 
 const PasswordSchema = z.object({
 	password: z.string().min(8, {
-		message: "Password is required",
+		error: "Password is required",
 	}),
 });
 

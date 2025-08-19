@@ -142,7 +142,7 @@ const createSchema = createInsertSchema(users_temp, {
 });
 
 export const apiCreateUserInvitation = createSchema.pick({}).extend({
-	email: z.string().email(),
+	email: z.email(),
 });
 
 export const apiRemoveUser = createSchema
@@ -258,7 +258,7 @@ export const apiReadTraefikConfig = z.object({
 				return true;
 			},
 			{
-				message:
+				error:
 					"Invalid path: path traversal or unauthorized directory access detected",
 			},
 		),
@@ -301,7 +301,7 @@ export const apiUpdateWebServerMonitoring = z.object({
 				refreshRate: z.number().min(2),
 				port: z.number().min(1),
 				token: z.string(),
-				urlCallback: z.string().url(),
+				urlCallback: z.url(),
 				retentionDays: z.number().min(1),
 				cronJob: z.string().min(1),
 				thresholds: z.object({

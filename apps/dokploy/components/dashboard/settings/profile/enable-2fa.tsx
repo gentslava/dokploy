@@ -34,14 +34,14 @@ import { api } from "@/utils/api";
 
 const PasswordSchema = z.object({
 	password: z.string().min(8, {
-		message: "Password is required",
+		error: "Password is required",
 	}),
 	issuer: z.string().optional(),
 });
 
 const PinSchema = z.object({
 	pin: z.string().min(6, {
-		message: "Pin is required",
+		error: "Pin is required",
 	}),
 });
 

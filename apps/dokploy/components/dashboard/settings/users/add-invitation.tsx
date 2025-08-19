@@ -38,7 +38,7 @@ import { api } from "@/utils/api";
 const addInvitation = z.object({
 	email: z
 		.string()
-		.min(1, "Email is required")
+		.min(1, { message: "Email is required" })
 		.email({ message: "Invalid email" }),
 	role: z.enum(["member", "admin"]),
 	notificationId: z.string().optional(),
