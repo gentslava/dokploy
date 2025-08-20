@@ -1,12 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
-import type { z } from "zod";
 import { db } from "../db";
-import {
-	type createVolumeBackupSchema,
-	type updateVolumeBackupSchema,
-	volumeBackups,
-} from "../db/schema";
+import { type VolumeBackup, volumeBackups } from "../db/schema";
 
 export const findVolumeBackupById = async (volumeBackupId: string) => {
 	const volumeBackup = await db.query.volumeBackups.findFirst({
@@ -33,9 +28,7 @@ export const findVolumeBackupById = async (volumeBackupId: string) => {
 	return volumeBackup;
 };
 
-export const createVolumeBackup = async (
-	volumeBackup: z.infer<typeof createVolumeBackupSchema>,
-) => {
+export const createVolumeBackup = async (volumeBackup: VolumeBackup) => {
 	const newVolumeBackup = await db
 		.insert(volumeBackups)
 		.values(volumeBackup)
@@ -53,7 +46,7 @@ export const removeVolumeBackup = async (volumeBackupId: string) => {
 
 export const updateVolumeBackup = async (
 	volumeBackupId: string,
-	volumeBackup: z.infer<typeof updateVolumeBackupSchema>,
+	volumeBackup: VolumeBackup,
 ) => {
 	return await db
 		.update(volumeBackups)

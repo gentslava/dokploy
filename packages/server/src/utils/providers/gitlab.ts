@@ -10,6 +10,7 @@ import {
 } from "@dokploy/server/services/gitlab";
 import type { InferResultType } from "@dokploy/server/types/with";
 import { TRPCError } from "@trpc/server";
+import type { z } from "zod";
 import { recreateDirectory } from "../filesystem/directory";
 import { execAsyncRemote } from "../process/execAsync";
 import { spawnAsync } from "../process/spawnAsync";
@@ -438,7 +439,7 @@ export const cloneRawGitlabRepositoryRemote = async (compose: Compose) => {
 };
 
 export const testGitlabConnection = async (
-	input: typeof apiGitlabTestConnection._type,
+	input: z.infer<typeof apiGitlabTestConnection>,
 ) => {
 	const { gitlabId, groupName } = input;
 

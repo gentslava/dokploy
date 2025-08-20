@@ -51,6 +51,7 @@ import {
 } from "@dokploy/server/utils/providers/raw";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
+import type { z } from "zod";
 import { encodeBase64 } from "../utils/docker/utils";
 import { getDokployUrl } from "./admin";
 import { createDeploymentCompose, updateDeploymentStatus } from "./deployment";
@@ -58,7 +59,9 @@ import { validUniqueServerAppName } from "./project";
 
 export type Compose = typeof compose.$inferSelect;
 
-export const createCompose = async (input: typeof apiCreateCompose._type) => {
+export const createCompose = async (
+	input: z.infer<typeof apiCreateCompose>,
+) => {
 	const appName = buildAppName("compose", input.appName);
 
 	const valid = await validUniqueServerAppName(appName);

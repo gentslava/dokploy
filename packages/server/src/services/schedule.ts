@@ -1,22 +1,15 @@
 import path from "node:path";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
-import type { z } from "zod";
 import { paths } from "../constants";
 import { db } from "../db";
-import type {
-	createScheduleSchema,
-	updateScheduleSchema,
-} from "../db/schema/schedule";
 import { type Schedule, schedules } from "../db/schema/schedule";
 import { encodeBase64 } from "../utils/docker/utils";
 import { execAsync, execAsyncRemote } from "../utils/process/execAsync";
 
 export type ScheduleExtended = Awaited<ReturnType<typeof findScheduleById>>;
 
-export const createSchedule = async (
-	input: z.infer<typeof createScheduleSchema>,
-) => {
+export const createSchedule = async (input: Schedule) => {
 	const { scheduleId, ...rest } = input;
 	const [newSchedule] = await db.insert(schedules).values(rest).returning();
 
@@ -79,9 +72,7 @@ export const deleteSchedule = async (scheduleId: string) => {
 	return true;
 };
 
-export const updateSchedule = async (
-	input: z.infer<typeof updateScheduleSchema>,
-) => {
+export const updateSchedule = async (input: Schedule) => {
 	const { scheduleId, ...rest } = input;
 	const [updatedSchedule] = await db
 		.update(schedules)

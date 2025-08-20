@@ -1,5 +1,5 @@
 import { db } from "@dokploy/server/db";
-import { type apiCreateBackup, backups } from "@dokploy/server/db/schema";
+import { backups } from "@dokploy/server/db/schema";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 
@@ -7,7 +7,7 @@ export type Backup = typeof backups.$inferSelect;
 
 export type BackupSchedule = Awaited<ReturnType<typeof findBackupById>>;
 export type BackupScheduleList = Awaited<ReturnType<typeof findBackupsByDbId>>;
-export const createBackup = async (input: typeof apiCreateBackup._type) => {
+export const createBackup = async (input: Backup) => {
 	const newBackup = await db
 		.insert(backups)
 		.values({

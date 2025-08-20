@@ -6,12 +6,13 @@ import {
 } from "@dokploy/server/utils/process/execAsync";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
+import type { z } from "zod";
 import { IS_CLOUD } from "../constants";
 
 export type Registry = typeof registry.$inferSelect;
 
 export const createRegistry = async (
-	input: typeof apiCreateRegistry._type,
+	input: z.infer<typeof apiCreateRegistry>,
 	organizationId: string,
 ) => {
 	return await db.transaction(async (tx) => {

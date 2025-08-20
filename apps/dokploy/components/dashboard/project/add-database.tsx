@@ -52,7 +52,7 @@ import {
 import { slugify } from "@/lib/slug";
 import { api } from "@/utils/api";
 
-type DbType = "postgres" | "mongo" | "redis" | "mysql" | "mariadb";
+type DbType = z.infer<typeof mySchema>["type"];
 
 const dockerImageDefaultPlaceholder: Record<DbType, string> = {
 	mongo: "mongo:6",

@@ -6,11 +6,12 @@ import {
 } from "@dokploy/server/db/schema";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
+import type { z } from "zod";
 
 export type Server = typeof server.$inferSelect;
 
 export const createServer = async (
-	input: typeof apiCreateServer._type,
+	input: z.infer<typeof apiCreateServer>,
 	organizationId: string,
 ) => {
 	const newServer = await db
