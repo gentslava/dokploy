@@ -2,7 +2,7 @@ name: Dokploy Docker Build
 
 on:
   push:
-    branches: [master, main, canary]
+    branches: [master, main, canary, "fix/re-apply-database-migration-fix"]
   workflow_dispatch:
 
 env:
