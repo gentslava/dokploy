@@ -1,0 +1,8 @@
+version: "1"
+rules:
+  - base: master
+    upstream: canary
+    mergeMethod: merge
+  - base: canary
+    upstream: Dokploy:canary
+    mergeMethod: hardreset
