@@ -1,11 +1,11 @@
 import {
-	IS_CLOUD,
 	createApiKey,
 	findAdmin,
 	findNotificationById,
 	findOrganizationById,
 	findUserById,
 	getUserByToken,
+	IS_CLOUD,
 	removeUserById,
 	sendEmailNotification,
 	updateUser,
@@ -15,8 +15,8 @@ import {
 	account,
 	apiAssignPermissions,
 	apiFindOneToken,
-	apiUpdateUser,
 	apikey,
+	apiUpdateUser,
 	invitation,
 	member,
 } from "@dokploy/server/db/schema";
@@ -192,7 +192,16 @@ export const userRouter = createTRPCRouter({
 					})
 					.where(eq(account.userId, ctx.user.id));
 			}
-			return await updateUser(ctx.user.id, input);
+
+			try {
+				return await updateUser(ctx.user.id, input);
+			} catch (error) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message:
+						error instanceof Error ? error.message : "Failed to update user",
+				});
+			}
 		}),
 	getUserByToken: publicProcedure
 		.input(apiFindOneToken)

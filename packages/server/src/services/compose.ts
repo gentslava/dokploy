@@ -126,7 +126,11 @@ export const findComposeById = async (composeId: string) => {
 	const result = await db.query.compose.findFirst({
 		where: eq(compose.composeId, composeId),
 		with: {
-			project: true,
+			environment: {
+				with: {
+					project: true,
+				},
+			},
 			deployments: true,
 			mounts: true,
 			domains: true,
@@ -222,8 +226,8 @@ export const deployCompose = async ({
 	const compose = await findComposeById(composeId);
 
 	const buildLink = `${await getDokployUrl()}/dashboard/project/${
-		compose.projectId
-	}/services/compose/${compose.composeId}?tab=deployments`;
+		compose.environment.projectId
+	}/environment/${compose.environmentId}/services/compose/${compose.composeId}?tab=deployments`;
 	const deployment = await createDeploymentCompose({
 		composeId: composeId,
 		title: titleLog,
@@ -255,11 +259,11 @@ export const deployCompose = async ({
 		});
 
 		await sendBuildSuccessNotifications({
-			projectName: compose.project.name,
+			projectName: compose.environment.project.name,
 			applicationName: compose.name,
 			applicationType: "compose",
 			buildLink,
-			organizationId: compose.project.organizationId,
+			organizationId: compose.environment.project.organizationId,
 			domains: compose.domains,
 		});
 	} catch (error) {
@@ -268,13 +272,13 @@ export const deployCompose = async ({
 			composeStatus: "error",
 		});
 		await sendBuildErrorNotifications({
-			projectName: compose.project.name,
+			projectName: compose.environment.project.name,
 			applicationName: compose.name,
 			applicationType: "compose",
 			// @ts-ignore
 			errorMessage: error?.message || "Error building",
 			buildLink,
-			organizationId: compose.project.organizationId,
+			organizationId: compose.environment.project.organizationId,
 		});
 		throw error;
 	}
@@ -330,8 +334,8 @@ export const deployRemoteCompose = async ({
 	const compose = await findComposeById(composeId);
 
 	const buildLink = `${await getDokployUrl()}/dashboard/project/${
-		compose.projectId
-	}/services/compose/${compose.composeId}?tab=deployments`;
+		compose.environment.projectId
+	}/environment/${compose.environmentId}/services/compose/${compose.composeId}?tab=deployments`;
 	const deployment = await createDeploymentCompose({
 		composeId: composeId,
 		title: titleLog,
@@ -387,11 +391,11 @@ export const deployRemoteCompose = async ({
 		});
 
 		await sendBuildSuccessNotifications({
-			projectName: compose.project.name,
+			projectName: compose.environment.project.name,
 			applicationName: compose.name,
 			applicationType: "compose",
 			buildLink,
-			organizationId: compose.project.organizationId,
+			organizationId: compose.environment.project.organizationId,
 			domains: compose.domains,
 		});
 	} catch (error) {
@@ -410,13 +414,13 @@ export const deployRemoteCompose = async ({
 			composeStatus: "error",
 		});
 		await sendBuildErrorNotifications({
-			projectName: compose.project.name,
+			projectName: compose.environment.project.name,
 			applicationName: compose.name,
 			applicationType: "compose",
 			// @ts-ignore
 			errorMessage: error?.message || "Error building",
 			buildLink,
-			organizationId: compose.project.organizationId,
+			organizationId: compose.environment.project.organizationId,
 		});
 		throw error;
 	}

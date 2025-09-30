@@ -1,17 +1,16 @@
 import { createWriteStream } from "node:fs";
 import { join } from "node:path";
 import { paths } from "@dokploy/server/constants";
+import type { apiFindGithubBranches } from "@dokploy/server/db/schema";
+import type { Compose } from "@dokploy/server/services/compose";
+import { findGithubById, type Github } from "@dokploy/server/services/github";
 import type { InferResultType } from "@dokploy/server/types/with";
 import { createAppAuth } from "@octokit/auth-app";
 import { TRPCError } from "@trpc/server";
 import { Octokit } from "octokit";
 import { recreateDirectory } from "../filesystem/directory";
-import { spawnAsync } from "../process/spawnAsync";
-
-import type { apiFindGithubBranches } from "@dokploy/server/db/schema";
-import type { Compose } from "@dokploy/server/services/compose";
-import { type Github, findGithubById } from "@dokploy/server/services/github";
 import { execAsyncRemote } from "../process/execAsync";
+import { spawnAsync } from "../process/spawnAsync";
 
 export const authGithub = (githubProvider: Github): Octokit => {
 	if (!haveGithubRequirements(githubProvider)) {
@@ -172,7 +171,7 @@ export const cloneGithubRepository = async ({
 	const cloneUrl = `https://oauth2:${token}@${repoclone}`;
 
 	try {
-		writeStream.write(`\nClonning Repo ${repoclone} to ${outputPath}: ✅\n`);
+		writeStream.write(`\nCloning Repo ${repoclone} to ${outputPath}: ✅\n`);
 		const cloneArgs = [
 			"clone",
 			"--branch",

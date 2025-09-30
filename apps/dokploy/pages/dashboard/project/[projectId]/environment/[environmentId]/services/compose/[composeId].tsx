@@ -48,6 +48,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { UseKeyboardNav } from "@/hooks/use-keyboard-nav";
 import { appRouter } from "@/server/api/root";
 import { api } from "@/utils/api";
 
@@ -66,7 +67,7 @@ const Service = (
 	const [_toggleMonitoring, _setToggleMonitoring] = useState(false);
 	const { composeId, activeTab } = props;
 	const router = useRouter();
-	const { projectId } = router.query;
+	const { projectId, environmentId } = router.query;
 	const [tab, setTab] = useState<TabState>(activeTab);
 
 	useEffect(() => {
@@ -82,22 +83,25 @@ const Service = (
 
 	return (
 		<div className="pb-10">
+			<UseKeyboardNav forPage="compose" />
 			<BreadcrumbSidebar
 				list={[
 					{ name: "Projects", href: "/dashboard/projects" },
 					{
-						name: data?.project?.name || "",
-						href: `/dashboard/project/${projectId}`,
+						name: data?.environment?.project?.name || "",
+					},
+					{
+						name: data?.environment?.name || "",
+						href: `/dashboard/project/${projectId}/environment/${environmentId}`,
 					},
 					{
 						name: data?.name || "",
-						href: `/dashboard/project/${projectId}/services/compose/${composeId}`,
 					},
 				]}
 			/>
 			<Head>
 				<title>
-					Compose: {data?.name} - {data?.project.name} | Dokploy
+					Compose: {data?.name} - {data?.environment?.project?.name} | Dokploy
 				</title>
 			</Head>
 			<div className="w-full">
@@ -206,7 +210,7 @@ const Service = (
 									className="w-full"
 									onValueChange={(e) => {
 										setTab(e as TabState);
-										const newPath = `/dashboard/project/${projectId}/services/compose/${composeId}?tab=${e}`;
+										const newPath = `/dashboard/project/${projectId}/environment/${environmentId}/services/compose/${composeId}?tab=${e}`;
 										router.push(newPath);
 									}}
 								>
@@ -373,6 +377,7 @@ export async function getServerSideProps(
 	ctx: GetServerSidePropsContext<{
 		composeId: string;
 		activeTab: TabState;
+		environmentId: string;
 	}>,
 ) {
 	const { query, params, req, res } = ctx;
@@ -412,6 +417,7 @@ export async function getServerSideProps(
 					trpcState: helpers.dehydrate(),
 					composeId: params?.composeId,
 					activeTab: (activeTab || "general") as TabState,
+					environmentId: params?.environmentId,
 				},
 			};
 		} catch {

@@ -175,6 +175,7 @@ export const apiAssignPermissions = createSchema
 	})
 	.extend({
 		accessedProjects: z.array(z.string()).optional(),
+		accessedEnvironments: z.array(z.string()).optional(),
 		accessedServices: z.array(z.string()).optional(),
 		canCreateProjects: z.boolean().optional(),
 		canCreateServices: z.boolean().optional(),
@@ -321,6 +322,11 @@ export const apiUpdateWebServerMonitoring = z.object({
 });
 
 export const apiUpdateUser = createSchema.partial().extend({
+	email: z
+		.string()
+		.email("Please enter a valid email address")
+		.min(1, "Email is required")
+		.optional(),
 	password: z.string().optional(),
 	currentPassword: z.string().optional(),
 	name: z.string().optional(),

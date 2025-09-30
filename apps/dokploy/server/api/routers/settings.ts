@@ -45,9 +45,9 @@ import {
 } from "@dokploy/server";
 import { generateOpenApiDocument } from "@dokploy/trpc-openapi";
 import { TRPCError } from "@trpc/server";
-import { sql } from "drizzle-orm";
-import { dump, load } from "js-yaml";
+import { eq, sql } from "drizzle-orm";
 import { scheduledJobs, scheduleJob } from "node-schedule";
+import { parse, stringify } from "yaml";
 import { z } from "zod";
 import { db } from "@/server/db";
 import {
@@ -60,6 +60,8 @@ import {
 	apiServerSchema,
 	apiTraefikConfig,
 	apiUpdateDockerCleanup,
+	projects,
+	server,
 } from "@/server/db/schema";
 import { removeJob, schedule } from "@/server/utils/backup";
 import packageInfo from "../../../package.json";
@@ -655,7 +657,7 @@ export const settingsRouter = createTRPCRouter({
 		const config = readMainConfig();
 
 		if (!config) return false;
-		const parsedConfig = load(config) as {
+		const parsedConfig = parse(config) as {
 			accessLog?: {
 				filePath: string;
 			};
@@ -676,7 +678,7 @@ export const settingsRouter = createTRPCRouter({
 			const mainConfig = readMainConfig();
 			if (!mainConfig) return false;
 
-			const currentConfig = load(mainConfig) as {
+			const currentConfig = parse(mainConfig) as {
 				accessLog?: {
 					filePath: string;
 				};
@@ -699,12 +701,24 @@ export const settingsRouter = createTRPCRouter({
 				currentConfig.accessLog = undefined;
 			}
 
-			writeMainConfig(dump(currentConfig));
+			writeMainConfig(stringify(currentConfig));
 
 			return true;
 		}),
 	isCloud: publicProcedure.query(async () => {
 		return IS_CLOUD;
+	}),
+	isUserSubscribed: protectedProcedure.query(async ({ ctx }) => {
+		const haveServers = await db.query.server.findMany({
+			where: eq(server.organizationId, ctx.session?.activeOrganizationId || ""),
+		});
+		const haveProjects = await db.query.projects.findMany({
+			where: eq(
+				projects.organizationId,
+				ctx.session?.activeOrganizationId || "",
+			),
+		});
+		return haveServers.length > 0 || haveProjects.length > 0;
 	}),
 	health: publicProcedure.query(async () => {
 		if (IS_CLOUD) {
