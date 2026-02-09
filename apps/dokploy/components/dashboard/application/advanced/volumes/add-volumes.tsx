@@ -1,3 +1,10 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { PlusIcon } from "lucide-react";
+import type React from "react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
 import { AlertBlock } from "@/components/shared/alert-block";
 import { CodeEditor } from "@/components/shared/code-editor";
 import { Button } from "@/components/ui/button";
@@ -22,13 +29,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { api } from "@/utils/api";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { PlusIcon } from "lucide-react";
-import type React from "react";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import { z } from "zod";
+
 interface Props {
 	serviceId: string;
 	serviceType:
@@ -58,7 +59,13 @@ const mySchema = z.discriminatedUnion("type", [
 	z
 		.object({
 			type: z.literal("volume"),
-			volumeName: z.string().min(1, "Volume name required"),
+			volumeName: z
+				.string()
+				.min(1, "Volume name required")
+				.regex(
+					/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/,
+					"Invalid volume name. Use letters, numbers, '._-' and start with a letter/number.",
+				),
 		})
 		.merge(mountSchema),
 	z
@@ -317,7 +324,7 @@ export const AddVolumes = ({
 											control={form.control}
 											name="content"
 											render={({ field }) => (
-												<FormItem>
+												<FormItem className="max-w-full max-w-[45rem]">
 													<FormLabel>Content</FormLabel>
 													<FormControl>
 														<FormControl>
@@ -326,7 +333,7 @@ export const AddVolumes = ({
 																placeholder={`NODE_ENV=production
 PORT=3000
 `}
-																className="h-96 font-mono"
+																className="h-96 font-mono "
 																{...field}
 															/>
 														</FormControl>

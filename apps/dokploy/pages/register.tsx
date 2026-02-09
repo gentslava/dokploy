@@ -1,4 +1,16 @@
+import { IS_CLOUD, isAdminPresent, validateRequest } from "@dokploy/server";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { AlertTriangle } from "lucide-react";
+import type { GetServerSidePropsContext } from "next";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import { type ReactElement, useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
 import { OnboardingLayout } from "@/components/layouts/onboarding-layout";
+import { SignInWithGithub } from "@/components/proprietary/auth/sign-in-with-github";
+import { SignInWithGoogle } from "@/components/proprietary/auth/sign-in-with-google";
 import { AlertBlock } from "@/components/shared/alert-block";
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
@@ -13,21 +25,14 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
-import { IS_CLOUD, isAdminPresent, validateRequest } from "@dokploy/server";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertTriangle } from "lucide-react";
-import type { GetServerSidePropsContext } from "next";
-import Link from "next/link";
-import { useRouter } from "next/router";
-import { type ReactElement, useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import { z } from "zod";
 
 const registerSchema = z
 	.object({
 		name: z.string().min(1, {
-			message: "Name is required",
+			message: "First name is required",
+		}),
+		lastName: z.string().min(1, {
+			message: "Last name is required",
 		}),
 		email: z
 			.string()
@@ -79,6 +84,7 @@ const Register = ({ isCloud }: Props) => {
 	const form = useForm<Register>({
 		defaultValues: {
 			name: "",
+			lastName: "",
 			email: "",
 			password: "",
 			confirmPassword: "",
@@ -95,13 +101,14 @@ const Register = ({ isCloud }: Props) => {
 			email: values.email,
 			password: values.password,
 			name: values.name,
+			lastName: values.lastName,
 		});
 
 		if (error) {
 			setIsError(true);
 			setError(error.message || "An error occurred");
 		} else {
-			toast.success("User registered successfuly", {
+			toast.success("User registered successfully", {
 				duration: 2000,
 			});
 			if (!isCloud) {
@@ -147,6 +154,17 @@ const Register = ({ isCloud }: Props) => {
 							</AlertBlock>
 						)}
 						<CardContent className="p-0">
+							{isCloud && (
+								<div className="flex flex-col">
+									<SignInWithGithub />
+									<SignInWithGoogle />
+								</div>
+							)}
+							{isCloud && (
+								<p className="mb-4 text-center text-xs text-muted-foreground">
+									Or register with email
+								</p>
+							)}
 							<Form {...form}>
 								<form
 									onSubmit={form.handleSubmit(onSubmit)}
@@ -158,9 +176,22 @@ const Register = ({ isCloud }: Props) => {
 											name="name"
 											render={({ field }) => (
 												<FormItem>
-													<FormLabel>Name</FormLabel>
+													<FormLabel>First Name</FormLabel>
 													<FormControl>
-														<Input placeholder="name" {...field} />
+														<Input placeholder="John" {...field} />
+													</FormControl>
+													<FormMessage />
+												</FormItem>
+											)}
+										/>
+										<FormField
+											control={form.control}
+											name="lastName"
+											render={({ field }) => (
+												<FormItem>
+													<FormLabel>Last Name</FormLabel>
+													<FormControl>
+														<Input placeholder="Doe" {...field} />
 													</FormControl>
 													<FormMessage />
 												</FormItem>

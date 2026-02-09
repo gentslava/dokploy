@@ -5,9 +5,14 @@ import { renderAsync } from "@react-email/components";
 import { format } from "date-fns";
 import { and, eq } from "drizzle-orm";
 import {
+	sendCustomNotification,
 	sendDiscordNotification,
 	sendEmailNotification,
 	sendGotifyNotification,
+	sendLarkNotification,
+	sendNtfyNotification,
+	sendPushoverNotification,
+	sendResendNotification,
 	sendSlackNotification,
 	sendTelegramNotification,
 } from "./utils";
@@ -41,185 +46,372 @@ export const sendDatabaseBackupNotifications = async ({
 			discord: true,
 			telegram: true,
 			slack: true,
+			resend: true,
 			gotify: true,
+			ntfy: true,
+			custom: true,
+			lark: true,
+			pushover: true,
 		},
 	});
 
 	for (const notification of notificationList) {
-		const { email, discord, telegram, slack, gotify } = notification;
+		const {
+			email,
+			resend,
+			discord,
+			telegram,
+			slack,
+			gotify,
+			ntfy,
+			custom,
+			lark,
+			pushover,
+		} = notification;
+		try {
+			if (email || resend) {
+				const template = await renderAsync(
+					DatabaseBackupEmail({
+						projectName,
+						applicationName,
+						databaseType,
+						type,
+						errorMessage,
+						date: date.toLocaleString(),
+					}),
+				).catch();
 
-		if (email) {
-			const template = await renderAsync(
-				DatabaseBackupEmail({
+				if (email) {
+					await sendEmailNotification(
+						email,
+						"Database backup for dokploy",
+						template,
+					);
+				}
+
+				if (resend) {
+					await sendResendNotification(
+						resend,
+						"Database backup for dokploy",
+						template,
+					);
+				}
+			}
+
+			if (discord) {
+				const decorate = (decoration: string, text: string) =>
+					`${discord.decoration ? decoration : ""} ${text}`.trim();
+
+				await sendDiscordNotification(discord, {
+					title:
+						type === "success"
+							? decorate(">", "`✅` Database Backup Successful")
+							: decorate(">", "`❌` Database Backup Failed"),
+					color: type === "success" ? 0x57f287 : 0xed4245,
+					fields: [
+						{
+							name: decorate("`🛠️`", "Project"),
+							value: projectName,
+							inline: true,
+						},
+						{
+							name: decorate("`⚙️`", "Application"),
+							value: applicationName,
+							inline: true,
+						},
+						{
+							name: decorate("`❔`", "Database"),
+							value: databaseType,
+							inline: true,
+						},
+						{
+							name: decorate("`📂`", "Database Name"),
+							value: databaseName,
+							inline: true,
+						},
+						{
+							name: decorate("`📅`", "Date"),
+							value: `<t:${unixDate}:D>`,
+							inline: true,
+						},
+						{
+							name: decorate("`⌚`", "Time"),
+							value: `<t:${unixDate}:t>`,
+							inline: true,
+						},
+						{
+							name: decorate("`❓`", "Type"),
+							value: type
+								.replace("error", "Failed")
+								.replace("success", "Successful"),
+							inline: true,
+						},
+						...(type === "error" && errorMessage
+							? [
+									{
+										name: decorate("`⚠️`", "Error Message"),
+										value: `\`\`\`${errorMessage}\`\`\``,
+									},
+								]
+							: []),
+					],
+					timestamp: date.toISOString(),
+					footer: {
+						text: "Dokploy Database Backup Notification",
+					},
+				});
+			}
+
+			if (gotify) {
+				const decorate = (decoration: string, text: string) =>
+					`${gotify.decoration ? decoration : ""} ${text}\n`;
+
+				await sendGotifyNotification(
+					gotify,
+					decorate(
+						type === "success" ? "✅" : "❌",
+						`Database Backup ${type === "success" ? "Successful" : "Failed"}`,
+					),
+					`${decorate("🛠️", `Project: ${projectName}`)}` +
+						`${decorate("⚙️", `Application: ${applicationName}`)}` +
+						`${decorate("❔", `Type: ${databaseType}`)}` +
+						`${decorate("📂", `Database Name: ${databaseName}`)}` +
+						`${decorate("🕒", `Date: ${date.toLocaleString()}`)}` +
+						`${type === "error" && errorMessage ? decorate("❌", `Error:\n${errorMessage}`) : ""}`,
+				);
+			}
+
+			if (ntfy) {
+				await sendNtfyNotification(
+					ntfy,
+					`Database Backup ${type === "success" ? "Successful" : "Failed"}`,
+					`${type === "success" ? "white_check_mark" : "x"}`,
+					"",
+					`🛠Project: ${projectName}\n` +
+						`⚙️Application: ${applicationName}\n` +
+						`❔Type: ${databaseType}\n` +
+						`📂Database Name: ${databaseName}` +
+						`🕒Date: ${date.toLocaleString()}\n` +
+						`${type === "error" && errorMessage ? `❌Error:\n${errorMessage}` : ""}`,
+				);
+			}
+
+			if (telegram) {
+				const isError = type === "error" && errorMessage;
+
+				const statusEmoji = type === "success" ? "✅" : "❌";
+				const typeStatus = type === "success" ? "Successful" : "Failed";
+				const errorMsg = isError
+					? `\n\n<b>Error:</b>\n<pre>${errorMessage}</pre>`
+					: "";
+
+				const messageText = `<b>${statusEmoji} Database Backup ${typeStatus}</b>\n\n<b>Project:</b> ${projectName}\n<b>Application:</b> ${applicationName}\n<b>Type:</b> ${databaseType}\n<b>Database Name:</b> ${databaseName}\n<b>Date:</b> ${format(date, "PP")}\n<b>Time:</b> ${format(date, "pp")}${isError ? errorMsg : ""}`;
+
+				await sendTelegramNotification(telegram, messageText);
+			}
+
+			if (slack) {
+				const { channel } = slack;
+				await sendSlackNotification(slack, {
+					channel: channel,
+					attachments: [
+						{
+							color: type === "success" ? "#00FF00" : "#FF0000",
+							pretext:
+								type === "success"
+									? ":white_check_mark: *Database Backup Successful*"
+									: ":x: *Database Backup Failed*",
+							fields: [
+								...(type === "error" && errorMessage
+									? [
+											{
+												title: "Error Message",
+												value: errorMessage,
+												short: false,
+											},
+										]
+									: []),
+								{
+									title: "Project",
+									value: projectName,
+									short: true,
+								},
+								{
+									title: "Application",
+									value: applicationName,
+									short: true,
+								},
+								{
+									title: "Type",
+									value: databaseType,
+									short: true,
+								},
+								{
+									title: "Database Name",
+									value: databaseName,
+								},
+								{
+									title: "Time",
+									value: date.toLocaleString(),
+									short: true,
+								},
+								{
+									title: "Type",
+									value: type,
+								},
+								{
+									title: "Status",
+									value: type === "success" ? "Successful" : "Failed",
+								},
+							],
+						},
+					],
+				});
+			}
+
+			if (custom) {
+				await sendCustomNotification(custom, {
+					title: `Database Backup ${type === "success" ? "Successful" : "Failed"}`,
+					message:
+						type === "success"
+							? "Database backup completed successfully"
+							: "Database backup failed",
 					projectName,
 					applicationName,
 					databaseType,
+					databaseName,
 					type,
-					errorMessage,
+					errorMessage: errorMessage || "",
+					timestamp: date.toISOString(),
 					date: date.toLocaleString(),
-				}),
-			).catch();
-			await sendEmailNotification(
-				email,
-				"Database backup for dokploy",
-				template,
-			);
-		}
+					status: type,
+				});
+			}
 
-		if (discord) {
-			const decorate = (decoration: string, text: string) =>
-				`${discord.decoration ? decoration : ""} ${text}`.trim();
+			if (lark) {
+				const limitCharacter = 800;
+				const truncatedErrorMessage =
+					errorMessage && errorMessage.length > limitCharacter
+						? errorMessage.substring(0, limitCharacter)
+						: errorMessage;
 
-			await sendDiscordNotification(discord, {
-				title:
-					type === "success"
-						? decorate(">", "`✅` Database Backup Successful")
-						: decorate(">", "`❌` Database Backup Failed"),
-				color: type === "success" ? 0x57f287 : 0xed4245,
-				fields: [
-					{
-						name: decorate("`🛠️`", "Project"),
-						value: projectName,
-						inline: true,
-					},
-					{
-						name: decorate("`⚙️`", "Application"),
-						value: applicationName,
-						inline: true,
-					},
-					{
-						name: decorate("`❔`", "Database"),
-						value: databaseType,
-						inline: true,
-					},
-					{
-						name: decorate("`📂`", "Database Name"),
-						value: databaseName,
-						inline: true,
-					},
-					{
-						name: decorate("`📅`", "Date"),
-						value: `<t:${unixDate}:D>`,
-						inline: true,
-					},
-					{
-						name: decorate("`⌚`", "Time"),
-						value: `<t:${unixDate}:t>`,
-						inline: true,
-					},
-					{
-						name: decorate("`❓`", "Type"),
-						value: type
-							.replace("error", "Failed")
-							.replace("success", "Successful"),
-						inline: true,
-					},
-					...(type === "error" && errorMessage
-						? [
-								{
-									name: decorate("`⚠️`", "Error Message"),
-									value: `\`\`\`${errorMessage}\`\`\``,
+				await sendLarkNotification(lark, {
+					msg_type: "interactive",
+					card: {
+						schema: "2.0",
+						config: {
+							update_multi: true,
+							style: {
+								text_size: {
+									normal_v2: {
+										default: "normal",
+										pc: "normal",
+										mobile: "heading",
+									},
 								},
-							]
-						: []),
-				],
-				timestamp: date.toISOString(),
-				footer: {
-					text: "Dokploy Database Backup Notification",
-				},
-			});
-		}
-
-		if (gotify) {
-			const decorate = (decoration: string, text: string) =>
-				`${gotify.decoration ? decoration : ""} ${text}\n`;
-
-			await sendGotifyNotification(
-				gotify,
-				decorate(
-					type === "success" ? "✅" : "❌",
-					`Database Backup ${type === "success" ? "Successful" : "Failed"}`,
-				),
-				`${decorate("🛠️", `Project: ${projectName}`)}` +
-					`${decorate("⚙️", `Application: ${applicationName}`)}` +
-					`${decorate("❔", `Type: ${databaseType}`)}` +
-					`${decorate("📂", `Database Name: ${databaseName}`)}` +
-					`${decorate("🕒", `Date: ${date.toLocaleString()}`)}` +
-					`${type === "error" && errorMessage ? decorate("❌", `Error:\n${errorMessage}`) : ""}`,
-			);
-		}
-
-		if (telegram) {
-			const isError = type === "error" && errorMessage;
-
-			const statusEmoji = type === "success" ? "✅" : "❌";
-			const typeStatus = type === "success" ? "Successful" : "Failed";
-			const errorMsg = isError
-				? `\n\n<b>Error:</b>\n<pre>${errorMessage}</pre>`
-				: "";
-
-			const messageText = `<b>${statusEmoji} Database Backup ${typeStatus}</b>\n\n<b>Project:</b> ${projectName}\n<b>Application:</b> ${applicationName}\n<b>Type:</b> ${databaseType}\n<b>Database Name:</b> ${databaseName}\n<b>Date:</b> ${format(date, "PP")}\n<b>Time:</b> ${format(date, "pp")}${isError ? errorMsg : ""}`;
-
-			await sendTelegramNotification(telegram, messageText);
-		}
-
-		if (slack) {
-			const { channel } = slack;
-			await sendSlackNotification(slack, {
-				channel: channel,
-				attachments: [
-					{
-						color: type === "success" ? "#00FF00" : "#FF0000",
-						pretext:
-							type === "success"
-								? ":white_check_mark: *Database Backup Successful*"
-								: ":x: *Database Backup Failed*",
-						fields: [
-							...(type === "error" && errorMessage
-								? [
+							},
+						},
+						header: {
+							title: {
+								tag: "plain_text",
+								content:
+									type === "success"
+										? "✅ Database Backup Successful"
+										: "❌ Database Backup Failed",
+							},
+							subtitle: {
+								tag: "plain_text",
+								content: "",
+							},
+							template: type === "success" ? "green" : "red",
+							padding: "12px 12px 12px 12px",
+						},
+						body: {
+							direction: "vertical",
+							padding: "12px 12px 12px 12px",
+							elements: [
+								{
+									tag: "column_set",
+									columns: [
 										{
-											title: "Error Message",
-											value: errorMessage,
-											short: false,
+											tag: "column",
+											width: "weighted",
+											elements: [
+												{
+													tag: "markdown",
+													content: `**Project:**\n${projectName}`,
+													text_align: "left",
+													text_size: "normal_v2",
+												},
+												{
+													tag: "markdown",
+													content: `**Database Type:**\n${databaseType}`,
+													text_align: "left",
+													text_size: "normal_v2",
+												},
+												{
+													tag: "markdown",
+													content: `**Status:**\n${type === "success" ? "Successful" : "Failed"}`,
+													text_align: "left",
+													text_size: "normal_v2",
+												},
+											],
+											vertical_align: "top",
+											weight: 1,
 										},
-									]
-								: []),
-							{
-								title: "Project",
-								value: projectName,
-								short: true,
-							},
-							{
-								title: "Application",
-								value: applicationName,
-								short: true,
-							},
-							{
-								title: "Type",
-								value: databaseType,
-								short: true,
-							},
-							{
-								title: "Database Name",
-								value: databaseName,
-							},
-							{
-								title: "Time",
-								value: date.toLocaleString(),
-								short: true,
-							},
-							{
-								title: "Type",
-								value: type,
-							},
-							{
-								title: "Status",
-								value: type === "success" ? "Successful" : "Failed",
-							},
-						],
+										{
+											tag: "column",
+											width: "weighted",
+											elements: [
+												{
+													tag: "markdown",
+													content: `**Application:**\n${applicationName}`,
+													text_align: "left",
+													text_size: "normal_v2",
+												},
+												{
+													tag: "markdown",
+													content: `**Database Name:**\n${databaseName}`,
+													text_align: "left",
+													text_size: "normal_v2",
+												},
+												{
+													tag: "markdown",
+													content: `**Date:**\n${format(date, "PP pp")}`,
+													text_align: "left",
+													text_size: "normal_v2",
+												},
+											],
+											vertical_align: "top",
+											weight: 1,
+										},
+									],
+								},
+								...(type === "error" && truncatedErrorMessage
+									? [
+											{
+												tag: "markdown",
+												content: `**Error Message:**\n\`\`\`\n${truncatedErrorMessage}\n\`\`\``,
+												text_align: "left",
+												text_size: "normal_v2",
+											},
+										]
+									: []),
+							],
+						},
 					},
-				],
-			});
+				});
+			}
+
+			if (pushover) {
+				await sendPushoverNotification(
+					pushover,
+					`Database Backup ${type === "success" ? "Successful" : "Failed"}`,
+					`Project: ${projectName}\nApplication: ${applicationName}\nDatabase: ${databaseType}\nDatabase Name: ${databaseName}\nDate: ${date.toLocaleString()}${type === "error" && errorMessage ? `\nError: ${errorMessage}` : ""}`,
+				);
+			}
+		} catch (error) {
+			console.log(error);
 		}
 	}
 };

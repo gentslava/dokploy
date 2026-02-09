@@ -1,3 +1,10 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { CheckIcon, ChevronsUpDown, HelpCircle, Plus, X } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useMemo } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
 import { GitlabIcon } from "@/components/icons/data-tools-icons";
 import { AlertBlock } from "@/components/shared/alert-block";
 import { Badge } from "@/components/ui/badge";
@@ -40,13 +47,6 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { api } from "@/utils/api";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckIcon, ChevronsUpDown, HelpCircle, Plus, X } from "lucide-react";
-import Link from "next/link";
-import { useEffect, useMemo } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import { z } from "zod";
 
 const GitlabProviderSchema = z.object({
 	buildPath: z.string().min(1, "Path is required").default("/"),
@@ -167,7 +167,7 @@ export const SaveGitlabProvider = ({ applicationId }: Props) => {
 			enableSubmodules: data.enableSubmodules,
 		})
 			.then(async () => {
-				toast.success("Service Provided Saved");
+				toast.success("Service Provider Saved");
 				await refetch();
 			})
 			.catch(() => {
@@ -232,9 +232,9 @@ export const SaveGitlabProvider = ({ applicationId }: Props) => {
 								<FormItem className="md:col-span-2 flex flex-col">
 									<div className="flex items-center justify-between">
 										<FormLabel>Repository</FormLabel>
-										{field.value.owner && field.value.repo && (
+										{field.value.gitlabPathNamespace && (
 											<Link
-												href={`${gitlabUrl}/${field.value.owner}/${field.value.repo}`}
+												href={`${gitlabUrl}/${field.value.gitlabPathNamespace}`}
 												target="_blank"
 												rel="noopener noreferrer"
 												className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary"

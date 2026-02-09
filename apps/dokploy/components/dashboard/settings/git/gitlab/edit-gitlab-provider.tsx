@@ -1,3 +1,9 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { PenBoxIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
 import { GitlabIcon } from "@/components/icons/data-tools-icons";
 import { AlertBlock } from "@/components/shared/alert-block";
 import { Button } from "@/components/ui/button";
@@ -14,17 +20,12 @@ import {
 	FormControl,
 	FormField,
 	FormItem,
+	FormDescription,
 	FormLabel,
 	FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { api } from "@/utils/api";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { PenBoxIcon } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import { z } from "zod";
 
 const Schema = z.object({
 	name: z.string().min(1, {
@@ -33,6 +34,10 @@ const Schema = z.object({
 	gitlabUrl: z.string().url({
 		message: "Invalid Gitlab URL",
 	}),
+	gitlabInternalUrl: z
+		.union([z.string().url(), z.literal("")])
+		.optional()
+		.transform((v) => (v === "" ? undefined : v)),
 	groupName: z.string().optional(),
 });
 
@@ -61,6 +66,7 @@ export const EditGitlabProvider = ({ gitlabId }: Props) => {
 			groupName: "",
 			name: "",
 			gitlabUrl: "https://gitlab.com",
+			gitlabInternalUrl: "",
 		},
 		resolver: zodResolver(Schema),
 	});
@@ -72,6 +78,7 @@ export const EditGitlabProvider = ({ gitlabId }: Props) => {
 			groupName: gitlab?.groupName || "",
 			name: gitlab?.gitProvider.name || "",
 			gitlabUrl: gitlab?.gitlabUrl || "",
+			gitlabInternalUrl: gitlab?.gitlabInternalUrl || "",
 		});
 	}, [form, isOpen]);
 
@@ -82,6 +89,7 @@ export const EditGitlabProvider = ({ gitlabId }: Props) => {
 			groupName: data.groupName || "",
 			name: data.name || "",
 			gitlabUrl: data.gitlabUrl || "",
+			gitlabInternalUrl: data.gitlabInternalUrl ?? null,
 		})
 			.then(async () => {
 				await utils.gitProvider.getAll.invalidate();
@@ -146,6 +154,29 @@ export const EditGitlabProvider = ({ gitlabId }: Props) => {
 											<FormControl>
 												<Input placeholder="https://gitlab.com" {...field} />
 											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+
+								<FormField
+									control={form.control}
+									name="gitlabInternalUrl"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Internal URL (Optional)</FormLabel>
+											<FormControl>
+												<Input
+													placeholder="http://gitlab:80"
+													{...field}
+													value={field.value ?? ""}
+												/>
+											</FormControl>
+											<FormDescription>
+												Use when GitLab runs on the same instance as Dokploy.
+												Used for OAuth token exchange to reach GitLab via
+												internal network (e.g. Docker service name).
+											</FormDescription>
 											<FormMessage />
 										</FormItem>
 									)}

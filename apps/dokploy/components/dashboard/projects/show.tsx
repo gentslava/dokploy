@@ -10,10 +10,12 @@ import {
 	TrashIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { BreadcrumbSidebar } from "@/components/shared/breadcrumb-sidebar";
 import { DateTooltip } from "@/components/shared/date-tooltip";
+import { FocusShortcutInput } from "@/components/shared/focus-shortcut-input";
 import { StatusTooltip } from "@/components/shared/status-tooltip";
 import {
 	AlertDialog,
@@ -44,7 +46,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import {
 	Select,
 	SelectContent,
@@ -52,16 +53,25 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { TimeBadge } from "@/components/ui/time-badge";
 import { api } from "@/utils/api";
+import { useDebounce } from "@/utils/hooks/use-debounce";
 import { HandleProject } from "./handle-project";
 import { ProjectEnvironment } from "./project-environment";
 
 export const ShowProjects = () => {
 	const utils = api.useUtils();
+	const router = useRouter();
+	const { data: isCloud } = api.settings.isCloud.useQuery();
 	const { data, isLoading } = api.project.all.useQuery();
 	const { data: auth } = api.user.get.useQuery();
 	const { mutateAsync } = api.project.remove.useMutation();
-	const [searchQuery, setSearchQuery] = useState("");
+
+	const [searchQuery, setSearchQuery] = useState(
+		router.isReady && typeof router.query.q === "string" ? router.query.q : "",
+	);
+	const debouncedSearchQuery = useDebounce(searchQuery, 500);
+
 	const [sortBy, setSortBy] = useState<string>(() => {
 		if (typeof window !== "undefined") {
 			return localStorage.getItem("projectsSort") || "createdAt-desc";
@@ -73,14 +83,41 @@ export const ShowProjects = () => {
 		localStorage.setItem("projectsSort", sortBy);
 	}, [sortBy]);
 
+	useEffect(() => {
+		if (!router.isReady) return;
+		const urlQuery = typeof router.query.q === "string" ? router.query.q : "";
+		if (urlQuery !== searchQuery) {
+			setSearchQuery(urlQuery);
+		}
+	}, [router.isReady, router.query.q]);
+
+	useEffect(() => {
+		if (!router.isReady) return;
+		const urlQuery = typeof router.query.q === "string" ? router.query.q : "";
+		if (debouncedSearchQuery === urlQuery) return;
+
+		const newQuery = { ...router.query };
+		if (debouncedSearchQuery) {
+			newQuery.q = debouncedSearchQuery;
+		} else {
+			delete newQuery.q;
+		}
+		router.replace({ pathname: router.pathname, query: newQuery }, undefined, {
+			shallow: true,
+		});
+	}, [debouncedSearchQuery]);
+
 	const filteredProjects = useMemo(() => {
 		if (!data) return [];
 
-		// First filter by search query
 		const filtered = data.filter(
 			(project) =>
-				project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				project.description?.toLowerCase().includes(searchQuery.toLowerCase()),
+				project.name
+					.toLowerCase()
+					.includes(debouncedSearchQuery.toLowerCase()) ||
+				project.description
+					?.toLowerCase()
+					.includes(debouncedSearchQuery.toLowerCase()),
 		);
 
 		// Then sort the filtered results
@@ -96,22 +133,30 @@ export const ShowProjects = () => {
 						new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
 					break;
 				case "services": {
-					const aTotalServices =
-						a.mariadb.length +
-						a.mongo.length +
-						a.mysql.length +
-						a.postgres.length +
-						a.redis.length +
-						a.applications.length +
-						a.compose.length;
-					const bTotalServices =
-						b.mariadb.length +
-						b.mongo.length +
-						b.mysql.length +
-						b.postgres.length +
-						b.redis.length +
-						b.applications.length +
-						b.compose.length;
+					const aTotalServices = a.environments.reduce((total, env) => {
+						return (
+							total +
+							(env.applications?.length || 0) +
+							(env.mariadb?.length || 0) +
+							(env.mongo?.length || 0) +
+							(env.mysql?.length || 0) +
+							(env.postgres?.length || 0) +
+							(env.redis?.length || 0) +
+							(env.compose?.length || 0)
+						);
+					}, 0);
+					const bTotalServices = b.environments.reduce((total, env) => {
+						return (
+							total +
+							(env.applications?.length || 0) +
+							(env.mariadb?.length || 0) +
+							(env.mongo?.length || 0) +
+							(env.mysql?.length || 0) +
+							(env.postgres?.length || 0) +
+							(env.redis?.length || 0) +
+							(env.compose?.length || 0)
+						);
+					}, 0);
 					comparison = aTotalServices - bTotalServices;
 					break;
 				}
@@ -120,13 +165,18 @@ export const ShowProjects = () => {
 			}
 			return direction === "asc" ? comparison : -comparison;
 		});
-	}, [data, searchQuery, sortBy]);
+	}, [data, debouncedSearchQuery, sortBy]);
 
 	return (
 		<>
 			<BreadcrumbSidebar
 				list={[{ name: "Projects", href: "/dashboard/projects" }]}
 			/>
+			{!isCloud && (
+				<div className="absolute top-4 right-4">
+					<TimeBadge />
+				</div>
+			)}
 			<div className="w-full">
 				<Card className="h-full bg-sidebar p-2.5 rounded-xl  ">
 					<div className="rounded-xl bg-background shadow-md ">
@@ -140,8 +190,9 @@ export const ShowProjects = () => {
 									Create and manage your projects
 								</CardDescription>
 							</CardHeader>
-
-							{(auth?.role === "owner" || auth?.canCreateProjects) && (
+							{(auth?.role === "owner" ||
+								auth?.role === "admin" ||
+								auth?.canCreateProjects) && (
 								<div className="">
 									<HandleProject />
 								</div>
@@ -158,12 +209,13 @@ export const ShowProjects = () => {
 								<>
 									<div className="flex max-sm:flex-col gap-4 items-center w-full">
 										<div className="flex-1 relative max-sm:w-full">
-											<Input
+											<FocusShortcutInput
 												placeholder="Filter projects..."
 												value={searchQuery}
 												onChange={(e) => setSearchQuery(e.target.value)}
 												className="pr-10"
 											/>
+
 											<Search className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
 										</div>
 										<div className="flex items-center gap-2 min-w-48 max-sm:w-full">
@@ -201,23 +253,47 @@ export const ShowProjects = () => {
 									)}
 									<div className="w-full grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5 flex-wrap gap-5">
 										{filteredProjects?.map((project) => {
-											const emptyServices =
-												project?.mariadb.length === 0 &&
-												project?.mongo.length === 0 &&
-												project?.mysql.length === 0 &&
-												project?.postgres.length === 0 &&
-												project?.redis.length === 0 &&
-												project?.applications.length === 0 &&
-												project?.compose.length === 0;
+											const emptyServices = project?.environments
+												.map(
+													(env) =>
+														env.applications.length === 0 &&
+														env.mariadb.length === 0 &&
+														env.mongo.length === 0 &&
+														env.mysql.length === 0 &&
+														env.postgres.length === 0 &&
+														env.redis.length === 0 &&
+														env.applications.length === 0 &&
+														env.compose.length === 0,
+												)
+												.every(Boolean);
 
-											const totalServices =
-												project?.mariadb.length +
-												project?.mongo.length +
-												project?.mysql.length +
-												project?.postgres.length +
-												project?.redis.length +
-												project?.applications.length +
-												project?.compose.length;
+											const totalServices = project?.environments
+												.map(
+													(env) =>
+														env.mariadb.length +
+														env.mongo.length +
+														env.mysql.length +
+														env.postgres.length +
+														env.redis.length +
+														env.applications.length +
+														env.compose.length,
+												)
+												.reduce((acc, curr) => acc + curr, 0);
+
+											const haveServicesWithDomains = project?.environments
+												.map(
+													(env) =>
+														env.applications.length > 0 ||
+														env.compose.length > 0,
+												)
+												.some(Boolean);
+
+											// Find default environment from accessible environments, or fall back to first accessible environment
+											const accessibleEnvironment =
+												project?.environments.find((env) => env.isDefault) ||
+												project?.environments?.[0];
+
+											const hasNoEnvironments = !accessibleEnvironment;
 
 											return (
 												<div
@@ -225,11 +301,19 @@ export const ShowProjects = () => {
 													className="w-full lg:max-w-md"
 												>
 													<Link
-														href={`/dashboard/project/${project.projectId}`}
+														href={
+															hasNoEnvironments
+																? "#"
+																: `/dashboard/project/${project.projectId}/environment/${accessibleEnvironment?.environmentId}`
+														}
+														onClick={(e) => {
+															if (hasNoEnvironments) {
+																e.preventDefault();
+															}
+														}}
 													>
 														<Card className="group relative w-full h-full bg-transparent transition-colors hover:bg-border">
-															{project.applications.length > 0 ||
-															project.compose.length > 0 ? (
+															{haveServicesWithDomains ? (
 																<DropdownMenu>
 																	<DropdownMenuTrigger asChild>
 																		<Button
@@ -244,80 +328,102 @@ export const ShowProjects = () => {
 																		className="w-[200px] space-y-2 overflow-y-auto max-h-[400px]"
 																		onClick={(e) => e.stopPropagation()}
 																	>
-																		{project.applications.length > 0 && (
+																		{project.environments.some(
+																			(env) => env.applications.length > 0,
+																		) && (
 																			<DropdownMenuGroup>
 																				<DropdownMenuLabel>
 																					Applications
 																				</DropdownMenuLabel>
-																				{project.applications.map((app) => (
-																					<div key={app.applicationId}>
-																						<DropdownMenuSeparator />
-																						<DropdownMenuGroup>
-																							<DropdownMenuLabel className="font-normal capitalize text-xs flex items-center justify-between">
-																								{app.name}
-																								<StatusTooltip
-																									status={app.applicationStatus}
-																								/>
-																							</DropdownMenuLabel>
+																				{project.environments.map((env) =>
+																					env.applications.map((app) => (
+																						<div key={app.applicationId}>
 																							<DropdownMenuSeparator />
-																							{app.domains.map((domain) => (
-																								<DropdownMenuItem
-																									key={domain.domainId}
-																									asChild
-																								>
-																									<Link
-																										className="space-x-4 text-xs cursor-pointer justify-between"
-																										target="_blank"
-																										href={`${domain.https ? "https" : "http"}://${domain.host}${domain.path}`}
+																							<DropdownMenuGroup>
+																								<DropdownMenuLabel className="font-normal capitalize text-xs flex items-center justify-between">
+																									{app.name}
+																									<StatusTooltip
+																										status={
+																											app.applicationStatus
+																										}
+																									/>
+																								</DropdownMenuLabel>
+																								<DropdownMenuSeparator />
+																								{app.domains.map((domain) => (
+																									<DropdownMenuItem
+																										key={domain.domainId}
+																										asChild
 																									>
-																										<span className="truncate">
-																											{domain.host}
-																										</span>
-																										<ExternalLinkIcon className="size-4 shrink-0" />
-																									</Link>
-																								</DropdownMenuItem>
-																							))}
-																						</DropdownMenuGroup>
-																					</div>
-																				))}
+																										<Link
+																											className="space-x-4 text-xs cursor-pointer justify-between"
+																											target="_blank"
+																											href={`${
+																												domain.https
+																													? "https"
+																													: "http"
+																											}://${domain.host}${
+																												domain.path
+																											}`}
+																										>
+																											<span className="truncate">
+																												{domain.host}
+																											</span>
+																											<ExternalLinkIcon className="size-4 shrink-0" />
+																										</Link>
+																									</DropdownMenuItem>
+																								))}
+																							</DropdownMenuGroup>
+																						</div>
+																					)),
+																				)}
 																			</DropdownMenuGroup>
 																		)}
-																		{project.compose.length > 0 && (
+																		{project.environments.some(
+																			(env) => env.compose.length > 0,
+																		) && (
 																			<DropdownMenuGroup>
 																				<DropdownMenuLabel>
 																					Compose
 																				</DropdownMenuLabel>
-																				{project.compose.map((comp) => (
-																					<div key={comp.composeId}>
-																						<DropdownMenuSeparator />
-																						<DropdownMenuGroup>
-																							<DropdownMenuLabel className="font-normal capitalize text-xs flex items-center justify-between">
-																								{comp.name}
-																								<StatusTooltip
-																									status={comp.composeStatus}
-																								/>
-																							</DropdownMenuLabel>
+																				{project.environments.map((env) =>
+																					env.compose.map((comp) => (
+																						<div key={comp.composeId}>
 																							<DropdownMenuSeparator />
-																							{comp.domains.map((domain) => (
-																								<DropdownMenuItem
-																									key={domain.domainId}
-																									asChild
-																								>
-																									<Link
-																										className="space-x-4 text-xs cursor-pointer justify-between"
-																										target="_blank"
-																										href={`${domain.https ? "https" : "http"}://${domain.host}${domain.path}`}
+																							<DropdownMenuGroup>
+																								<DropdownMenuLabel className="font-normal capitalize text-xs flex items-center justify-between">
+																									{comp.name}
+																									<StatusTooltip
+																										status={comp.composeStatus}
+																									/>
+																								</DropdownMenuLabel>
+																								<DropdownMenuSeparator />
+																								{comp.domains.map((domain) => (
+																									<DropdownMenuItem
+																										key={domain.domainId}
+																										asChild
 																									>
-																										<span className="truncate">
-																											{domain.host}
-																										</span>
-																										<ExternalLinkIcon className="size-4 shrink-0" />
-																									</Link>
-																								</DropdownMenuItem>
-																							))}
-																						</DropdownMenuGroup>
-																					</div>
-																				))}
+																										<Link
+																											className="space-x-4 text-xs cursor-pointer justify-between"
+																											target="_blank"
+																											href={`${
+																												domain.https
+																													? "https"
+																													: "http"
+																											}://${domain.host}${
+																												domain.path
+																											}`}
+																										>
+																											<span className="truncate">
+																												{domain.host}
+																											</span>
+																											<ExternalLinkIcon className="size-4 shrink-0" />
+																										</Link>
+																									</DropdownMenuItem>
+																								))}
+																							</DropdownMenuGroup>
+																						</div>
+																					)),
+																				)}
 																			</DropdownMenuGroup>
 																		)}
 																	</DropdownMenuContent>
@@ -325,7 +431,7 @@ export const ShowProjects = () => {
 															) : null}
 															<CardHeader>
 																<CardTitle className="flex items-center justify-between gap-2">
-																	<span className="flex flex-col gap-1.5">
+																	<span className="flex flex-col gap-1.5 ">
 																		<div className="flex items-center gap-2">
 																			<BookIcon className="size-4 text-muted-foreground" />
 																			<span className="text-base font-medium leading-none">
@@ -333,9 +439,19 @@ export const ShowProjects = () => {
 																			</span>
 																		</div>
 
-																		<span className="text-sm font-medium text-muted-foreground">
+																		<span className="text-sm font-medium text-muted-foreground break-all">
 																			{project.description}
 																		</span>
+
+																		{hasNoEnvironments && (
+																			<div className="flex flex-row gap-2 items-center rounded-lg bg-yellow-50 p-2 mt-2 dark:bg-yellow-950">
+																				<AlertTriangle className="size-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+																				<span className="text-xs text-yellow-600 dark:text-yellow-400">
+																					You have access to this project but no
+																					environments are available
+																				</span>
+																			</div>
+																		)}
 																	</span>
 																	<div className="flex self-start space-x-1">
 																		<DropdownMenu>

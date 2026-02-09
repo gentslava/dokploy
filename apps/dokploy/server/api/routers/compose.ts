@@ -1,38 +1,25 @@
-import { slugify } from "@/lib/slug";
-import { db } from "@/server/db";
 import {
-	apiCreateCompose,
-	apiDeleteCompose,
-	apiFetchServices,
-	apiFindCompose,
-	apiRandomizeCompose,
-	apiUpdateCompose,
-	compose as composeTable,
-} from "@/server/db/schema";
-import type { DeploymentJob } from "@/server/queues/queue-types";
-import { cleanQueuesByCompose, myQueue } from "@/server/queues/queueSetup";
-import { deploy } from "@/server/utils/deploy";
-import { generatePassword } from "@/templates/utils";
-import {
-	IS_CLOUD,
 	addDomainToCompose,
 	addNewService,
 	checkServiceAccess,
 	cloneCompose,
-	cloneComposeRemote,
 	createCommand,
 	createCompose,
 	createComposeByTemplate,
 	createDomain,
 	createMount,
 	deleteMount,
+	execAsync,
+	execAsyncRemote,
 	findComposeById,
 	findDomainsByComposeId,
+	findEnvironmentById,
 	findGitProviderById,
 	findProjectById,
 	findServerById,
-	findUserById,
 	getComposeContainer,
+	getWebServerSettings,
+	IS_CLOUD,
 	loadServices,
 	randomizeComposeFile,
 	randomizeIsolatedDeploymentComposeFile,
@@ -43,6 +30,7 @@ import {
 	startCompose,
 	stopCompose,
 	updateCompose,
+	updateDeploymentStatus,
 } from "@dokploy/server";
 import {
 	type CompleteTemplate,
@@ -52,11 +40,34 @@ import {
 import { processTemplate } from "@dokploy/server/templates/processors";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
-import { dump } from "js-yaml";
 import _ from "lodash";
 import { nanoid } from "nanoid";
 import { parse } from "toml";
+import { stringify } from "yaml";
 import { z } from "zod";
+import { slugify } from "@/lib/slug";
+import { db } from "@/server/db";
+import {
+	apiCreateCompose,
+	apiDeleteCompose,
+	apiDeployCompose,
+	apiFetchServices,
+	apiFindCompose,
+	apiRandomizeCompose,
+	apiRedeployCompose,
+	apiUpdateCompose,
+	compose as composeTable,
+} from "@/server/db/schema";
+import { deploymentWorker } from "@/server/queues/deployments-queue";
+import type { DeploymentJob } from "@/server/queues/queue-types";
+import {
+	cleanQueuesByCompose,
+	getJobsByComposeId,
+	killDockerBuild,
+	myQueue,
+} from "@/server/queues/queueSetup";
+import { cancelDeployment, deploy } from "@/server/utils/deploy";
+import { generatePassword } from "@/templates/utils";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 
 export const composeRouter = createTRPCRouter({
@@ -64,10 +75,14 @@ export const composeRouter = createTRPCRouter({
 		.input(apiCreateCompose)
 		.mutation(async ({ ctx, input }) => {
 			try {
+				// Get project from environment
+				const environment = await findEnvironmentById(input.environmentId);
+				const project = await findProjectById(environment.projectId);
+
 				if (ctx.user.role === "member") {
 					await checkServiceAccess(
 						ctx.user.id,
-						input.projectId,
+						project.projectId,
 						ctx.session.activeOrganizationId,
 						"create",
 					);
@@ -79,14 +94,15 @@ export const composeRouter = createTRPCRouter({
 						message: "You need to use a server to create a compose",
 					});
 				}
-				const project = await findProjectById(input.projectId);
 				if (project.organizationId !== ctx.session.activeOrganizationId) {
 					throw new TRPCError({
 						code: "UNAUTHORIZED",
 						message: "You are not authorized to access this project",
 					});
 				}
-				const newService = await createCompose(input);
+				const newService = await createCompose({
+					...input,
+				});
 
 				if (ctx.user.role === "member") {
 					await addNewService(
@@ -115,7 +131,10 @@ export const composeRouter = createTRPCRouter({
 			}
 
 			const compose = await findComposeById(input.composeId);
-			if (compose.project.organizationId !== ctx.session.activeOrganizationId) {
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to access this compose",
@@ -166,7 +185,10 @@ export const composeRouter = createTRPCRouter({
 		.input(apiUpdateCompose)
 		.mutation(async ({ input, ctx }) => {
 			const compose = await findComposeById(input.composeId);
-			if (compose.project.organizationId !== ctx.session.activeOrganizationId) {
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to update this compose",
@@ -188,7 +210,7 @@ export const composeRouter = createTRPCRouter({
 			const composeResult = await findComposeById(input.composeId);
 
 			if (
-				composeResult.project.organizationId !==
+				composeResult.environment.project.organizationId !==
 				ctx.session.activeOrganizationId
 			) {
 				throw new TRPCError({
@@ -196,12 +218,20 @@ export const composeRouter = createTRPCRouter({
 					message: "You are not authorized to delete this compose",
 				});
 			}
-			4;
 
 			const result = await db
 				.delete(composeTable)
 				.where(eq(composeTable.composeId, input.composeId))
 				.returning();
+
+			if (!IS_CLOUD) {
+				const queueJobs = await getJobsByComposeId(input.composeId);
+				for (const job of queueJobs) {
+					if (job.id) {
+						deploymentWorker.cancelJob(job.id, "User requested cancellation");
+					}
+				}
+			}
 
 			const cleanupOperations = [
 				async () => await removeCompose(composeResult, input.deleteVolumes),
@@ -215,26 +245,48 @@ export const composeRouter = createTRPCRouter({
 				} catch (_) {}
 			}
 
-			return result[0];
+			return composeResult;
 		}),
 	cleanQueues: protectedProcedure
 		.input(apiFindCompose)
 		.mutation(async ({ input, ctx }) => {
 			const compose = await findComposeById(input.composeId);
-			if (compose.project.organizationId !== ctx.session.activeOrganizationId) {
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to clean this compose",
 				});
 			}
 			await cleanQueuesByCompose(input.composeId);
+			return { success: true, message: "Queues cleaned successfully" };
+		}),
+	killBuild: protectedProcedure
+		.input(apiFindCompose)
+		.mutation(async ({ input, ctx }) => {
+			const compose = await findComposeById(input.composeId);
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+					message: "You are not authorized to kill this build",
+				});
+			}
+			await killDockerBuild("compose", compose.serverId);
 		}),
 
 	loadServices: protectedProcedure
 		.input(apiFetchServices)
 		.query(async ({ input, ctx }) => {
 			const compose = await findComposeById(input.composeId);
-			if (compose.project.organizationId !== ctx.session.activeOrganizationId) {
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to load this compose",
@@ -251,7 +303,10 @@ export const composeRouter = createTRPCRouter({
 		)
 		.query(async ({ input, ctx }) => {
 			const compose = await findComposeById(input.composeId);
-			if (compose.project.organizationId !== ctx.session.activeOrganizationId) {
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to load this compose",
@@ -270,17 +325,20 @@ export const composeRouter = createTRPCRouter({
 				const compose = await findComposeById(input.composeId);
 
 				if (
-					compose.project.organizationId !== ctx.session.activeOrganizationId
+					compose.environment.project.organizationId !==
+					ctx.session.activeOrganizationId
 				) {
 					throw new TRPCError({
 						code: "UNAUTHORIZED",
 						message: "You are not authorized to fetch this compose",
 					});
 				}
+
+				const command = await cloneCompose(compose);
 				if (compose.serverId) {
-					await cloneComposeRemote(compose);
+					await execAsyncRemote(compose.serverId, command);
 				} else {
-					await cloneCompose(compose);
+					await execAsync(command);
 				}
 				return compose.sourceType;
 			} catch (err) {
@@ -296,7 +354,10 @@ export const composeRouter = createTRPCRouter({
 		.input(apiRandomizeCompose)
 		.mutation(async ({ input, ctx }) => {
 			const compose = await findComposeById(input.composeId);
-			if (compose.project.organizationId !== ctx.session.activeOrganizationId) {
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to randomize this compose",
@@ -308,7 +369,10 @@ export const composeRouter = createTRPCRouter({
 		.input(apiRandomizeCompose)
 		.mutation(async ({ input, ctx }) => {
 			const compose = await findComposeById(input.composeId);
-			if (compose.project.organizationId !== ctx.session.activeOrganizationId) {
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to randomize this compose",
@@ -323,7 +387,10 @@ export const composeRouter = createTRPCRouter({
 		.input(apiFindCompose)
 		.query(async ({ input, ctx }) => {
 			const compose = await findComposeById(input.composeId);
-			if (compose.project.organizationId !== ctx.session.activeOrganizationId) {
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to get this compose",
@@ -331,17 +398,20 @@ export const composeRouter = createTRPCRouter({
 			}
 			const domains = await findDomainsByComposeId(input.composeId);
 			const composeFile = await addDomainToCompose(compose, domains);
-			return dump(composeFile, {
+			return stringify(composeFile, {
 				lineWidth: 1000,
 			});
 		}),
 
 	deploy: protectedProcedure
-		.input(apiFindCompose)
+		.input(apiDeployCompose)
 		.mutation(async ({ input, ctx }) => {
 			const compose = await findComposeById(input.composeId);
 
-			if (compose.project.organizationId !== ctx.session.activeOrganizationId) {
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to deploy this compose",
@@ -349,16 +419,18 @@ export const composeRouter = createTRPCRouter({
 			}
 			const jobData: DeploymentJob = {
 				composeId: input.composeId,
-				titleLog: "Manual deployment",
+				titleLog: input.title || "Manual deployment",
 				type: "deploy",
 				applicationType: "compose",
-				descriptionLog: "",
+				descriptionLog: input.description || "",
 				server: !!compose.serverId,
 			};
 
 			if (IS_CLOUD && compose.serverId) {
 				jobData.serverId = compose.serverId;
-				await deploy(jobData);
+				deploy(jobData).catch((error) => {
+					console.error("Background deployment failed:", error);
+				});
 				return true;
 			}
 			await myQueue.add(
@@ -369,12 +441,20 @@ export const composeRouter = createTRPCRouter({
 					removeOnFail: true,
 				},
 			);
+			return {
+				success: true,
+				message: "Deployment queued",
+				composeId: compose.composeId,
+			};
 		}),
 	redeploy: protectedProcedure
-		.input(apiFindCompose)
+		.input(apiRedeployCompose)
 		.mutation(async ({ input, ctx }) => {
 			const compose = await findComposeById(input.composeId);
-			if (compose.project.organizationId !== ctx.session.activeOrganizationId) {
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to redeploy this compose",
@@ -382,15 +462,17 @@ export const composeRouter = createTRPCRouter({
 			}
 			const jobData: DeploymentJob = {
 				composeId: input.composeId,
-				titleLog: "Rebuild deployment",
+				titleLog: input.title || "Rebuild deployment",
 				type: "redeploy",
 				applicationType: "compose",
-				descriptionLog: "",
+				descriptionLog: input.description || "",
 				server: !!compose.serverId,
 			};
 			if (IS_CLOUD && compose.serverId) {
 				jobData.serverId = compose.serverId;
-				await deploy(jobData);
+				deploy(jobData).catch((error) => {
+					console.error("Background deployment failed:", error);
+				});
 				return true;
 			}
 			await myQueue.add(
@@ -401,12 +483,20 @@ export const composeRouter = createTRPCRouter({
 					removeOnFail: true,
 				},
 			);
+			return {
+				success: true,
+				message: "Redeployment queued",
+				composeId: compose.composeId,
+			};
 		}),
 	stop: protectedProcedure
 		.input(apiFindCompose)
 		.mutation(async ({ input, ctx }) => {
 			const compose = await findComposeById(input.composeId);
-			if (compose.project.organizationId !== ctx.session.activeOrganizationId) {
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to stop this compose",
@@ -420,7 +510,10 @@ export const composeRouter = createTRPCRouter({
 		.input(apiFindCompose)
 		.mutation(async ({ input, ctx }) => {
 			const compose = await findComposeById(input.composeId);
-			if (compose.project.organizationId !== ctx.session.activeOrganizationId) {
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to stop this compose",
@@ -435,7 +528,10 @@ export const composeRouter = createTRPCRouter({
 		.query(async ({ input, ctx }) => {
 			const compose = await findComposeById(input.composeId);
 
-			if (compose.project.organizationId !== ctx.session.activeOrganizationId) {
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to get this compose",
@@ -448,7 +544,10 @@ export const composeRouter = createTRPCRouter({
 		.input(apiFindCompose)
 		.mutation(async ({ input, ctx }) => {
 			const compose = await findComposeById(input.composeId);
-			if (compose.project.organizationId !== ctx.session.activeOrganizationId) {
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to refresh this compose",
@@ -462,17 +561,19 @@ export const composeRouter = createTRPCRouter({
 	deployTemplate: protectedProcedure
 		.input(
 			z.object({
-				projectId: z.string(),
+				environmentId: z.string(),
 				serverId: z.string().optional(),
 				id: z.string(),
 				baseUrl: z.string().optional(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			const environment = await findEnvironmentById(input.environmentId);
+
 			if (ctx.user.role === "member") {
 				await checkServiceAccess(
 					ctx.user.id,
-					input.projectId,
+					environment.projectId,
 					ctx.session.activeOrganizationId,
 					"create",
 				);
@@ -487,16 +588,18 @@ export const composeRouter = createTRPCRouter({
 
 			const template = await fetchTemplateFiles(input.id, input.baseUrl);
 
-			const admin = await findUserById(ctx.user.ownerId);
-			let serverIp = admin.serverIp || "127.0.0.1";
+			let serverIp = "127.0.0.1";
 
-			const project = await findProjectById(input.projectId);
+			const project = await findProjectById(environment.projectId);
 
 			if (input.serverId) {
 				const server = await findServerById(input.serverId);
 				serverIp = server.ipAddress;
 			} else if (process.env.NODE_ENV === "development") {
 				serverIp = "127.0.0.1";
+			} else {
+				const settings = await getWebServerSettings();
+				serverIp = settings?.serverIp || "127.0.0.1";
 			}
 
 			const projectName = slugify(`${project.name} ${input.id}`);
@@ -591,7 +694,10 @@ export const composeRouter = createTRPCRouter({
 		.input(apiFindCompose)
 		.mutation(async ({ input, ctx }) => {
 			const compose = await findComposeById(input.composeId);
-			if (compose.project.organizationId !== ctx.session.activeOrganizationId) {
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to disconnect this git provider",
@@ -647,30 +753,38 @@ export const composeRouter = createTRPCRouter({
 		.input(
 			z.object({
 				composeId: z.string(),
-				targetProjectId: z.string(),
+				targetEnvironmentId: z.string(),
 			}),
 		)
 		.mutation(async ({ input, ctx }) => {
 			const compose = await findComposeById(input.composeId);
-			if (compose.project.organizationId !== ctx.session.activeOrganizationId) {
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
 					message: "You are not authorized to move this compose",
 				});
 			}
 
-			const targetProject = await findProjectById(input.targetProjectId);
-			if (targetProject.organizationId !== ctx.session.activeOrganizationId) {
+			const targetEnvironment = await findEnvironmentById(
+				input.targetEnvironmentId,
+			);
+			if (
+				targetEnvironment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
-					message: "You are not authorized to move to this project",
+					message: "You are not authorized to move to this environment",
 				});
 			}
 
 			const updatedCompose = await db
 				.update(composeTable)
 				.set({
-					projectId: input.targetProjectId,
+					environmentId: input.targetEnvironmentId,
 				})
 				.where(eq(composeTable.composeId, input.composeId))
 				.returning()
@@ -698,7 +812,8 @@ export const composeRouter = createTRPCRouter({
 				const compose = await findComposeById(input.composeId);
 
 				if (
-					compose.project.organizationId !== ctx.session.activeOrganizationId
+					compose.environment.project.organizationId !==
+					ctx.session.activeOrganizationId
 				) {
 					throw new TRPCError({
 						code: "UNAUTHORIZED",
@@ -709,14 +824,16 @@ export const composeRouter = createTRPCRouter({
 				const decodedData = Buffer.from(input.base64, "base64").toString(
 					"utf-8",
 				);
-				const admin = await findUserById(ctx.user.ownerId);
-				let serverIp = admin.serverIp || "127.0.0.1";
+				let serverIp = "127.0.0.1";
 
 				if (compose.serverId) {
 					const server = await findServerById(compose.serverId);
 					serverIp = server.ipAddress;
 				} else if (process.env.NODE_ENV === "development") {
 					serverIp = "127.0.0.1";
+				} else {
+					const settings = await getWebServerSettings();
+					serverIp = settings?.serverIp || "127.0.0.1";
 				}
 				const templateData = JSON.parse(decodedData);
 				const config = parse(templateData.config) as CompleteTemplate;
@@ -769,7 +886,8 @@ export const composeRouter = createTRPCRouter({
 				);
 
 				if (
-					compose.project.organizationId !== ctx.session.activeOrganizationId
+					compose.environment.project.organizationId !==
+					ctx.session.activeOrganizationId
 				) {
 					throw new TRPCError({
 						code: "UNAUTHORIZED",
@@ -785,14 +903,16 @@ export const composeRouter = createTRPCRouter({
 					await removeDomainById(domain.domainId);
 				}
 
-				const admin = await findUserById(ctx.user.ownerId);
-				let serverIp = admin.serverIp || "127.0.0.1";
+				let serverIp = "127.0.0.1";
 
 				if (compose.serverId) {
 					const server = await findServerById(compose.serverId);
 					serverIp = server.ipAddress;
 				} else if (process.env.NODE_ENV === "development") {
 					serverIp = "127.0.0.1";
+				} else {
+					const settings = await getWebServerSettings();
+					serverIp = settings?.serverIp || "127.0.0.1";
 				}
 
 				const templateData = JSON.parse(decodedData);
@@ -862,5 +982,58 @@ export const composeRouter = createTRPCRouter({
 					message: `Error importing template: ${error instanceof Error ? error.message : error}`,
 				});
 			}
+		}),
+
+	cancelDeployment: protectedProcedure
+		.input(apiFindCompose)
+		.mutation(async ({ input, ctx }) => {
+			const compose = await findComposeById(input.composeId);
+			if (
+				compose.environment.project.organizationId !==
+				ctx.session.activeOrganizationId
+			) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+					message: "You are not authorized to cancel this deployment",
+				});
+			}
+
+			if (IS_CLOUD && compose.serverId) {
+				try {
+					await updateCompose(input.composeId, {
+						composeStatus: "idle",
+					});
+
+					if (compose.deployments[0]) {
+						await updateDeploymentStatus(
+							compose.deployments[0].deploymentId,
+							"done",
+						);
+					}
+
+					await cancelDeployment({
+						composeId: input.composeId,
+						applicationType: "compose",
+					});
+
+					return {
+						success: true,
+						message: "Deployment cancellation requested",
+					};
+				} catch (error) {
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message:
+							error instanceof Error
+								? error.message
+								: "Failed to cancel deployment",
+					});
+				}
+			}
+
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message: "Deployment cancellation only available in cloud version",
+			});
 		}),
 });

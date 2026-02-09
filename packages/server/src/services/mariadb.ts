@@ -2,24 +2,23 @@ import { db } from "@dokploy/server/db";
 import {
 	type apiCreateMariaDB,
 	backups,
+	buildAppName,
 	mariadb,
 } from "@dokploy/server/db/schema";
-import { buildAppName } from "@dokploy/server/db/schema";
 import { generatePassword } from "@dokploy/server/templates";
 import { buildMariadb } from "@dokploy/server/utils/databases/mariadb";
 import { pullImage } from "@dokploy/server/utils/docker/utils";
+import { execAsyncRemote } from "@dokploy/server/utils/process/execAsync";
 import { TRPCError } from "@trpc/server";
 import { eq, getTableColumns } from "drizzle-orm";
 import { validUniqueServerAppName } from "./project";
-
-import { execAsyncRemote } from "@dokploy/server/utils/process/execAsync";
 
 export type Mariadb = typeof mariadb.$inferSelect;
 
 export const createMariadb = async (input: typeof apiCreateMariaDB._type) => {
 	const appName = buildAppName("mariadb", input.appName);
 
-	const valid = await validUniqueServerAppName(input.appName);
+	const valid = await validUniqueServerAppName(appName);
 	if (!valid) {
 		throw new TRPCError({
 			code: "CONFLICT",
@@ -57,7 +56,11 @@ export const findMariadbById = async (mariadbId: string) => {
 	const result = await db.query.mariadb.findFirst({
 		where: eq(mariadb.mariadbId, mariadbId),
 		with: {
-			project: true,
+			environment: {
+				with: {
+					project: true,
+				},
+			},
 			mounts: true,
 			server: true,
 			backups: {

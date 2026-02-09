@@ -8,14 +8,11 @@ Before submitting this PR, please make sure that:
 
 - [ ] You created a dedicated branch based on the `canary` branch.
 - [ ] You have read the suggestions in the CONTRIBUTING.md file https://github.com/Dokploy/dokploy/blob/canary/CONTRIBUTING.md#pull-request
-- [ ] You have tested this PR in your local instance.
+- [ ] You have tested this PR in your local instance. If you have not tested it yet, please do so before submitting. This helps avoid wasting maintainers' time reviewing code that has not been verified by you.
 
 ## Issues related (if applicable)
 
-Close automatically the related issues using the keywords: `closes #ISSUE_NUMBER`, `fixes #ISSUE_NUMBER`, `resolves #ISSUE_NUMBER`
-
-Example: `closes #123`
+closes #123
 
 ## Screenshots (if applicable)
 
-If you include a video or screenshot, would be awesome so we can see the changes in action.

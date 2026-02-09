@@ -21,6 +21,7 @@ export const deploymentStatus = pgEnum("deploymentStatus", [
 	"running",
 	"done",
 	"error",
+	"cancelled",
 ]);
 
 export const deployments = pgTable("deployment", {
@@ -69,6 +70,9 @@ export const deployments = pgTable("deployment", {
 		(): AnyPgColumn => volumeBackups.volumeBackupId,
 		{ onDelete: "cascade" },
 	),
+	buildServerId: text("buildServerId").references(() => server.serverId, {
+		onDelete: "cascade",
+	}),
 });
 
 export const deploymentsRelations = relations(deployments, ({ one }) => ({
@@ -83,6 +87,12 @@ export const deploymentsRelations = relations(deployments, ({ one }) => ({
 	server: one(server, {
 		fields: [deployments.serverId],
 		references: [server.serverId],
+		relationName: "deploymentServer",
+	}),
+	buildServer: one(server, {
+		fields: [deployments.buildServerId],
+		references: [server.serverId],
+		relationName: "deploymentBuildServer",
 	}),
 	previewDeployment: one(previewDeployments, {
 		fields: [deployments.previewDeploymentId],
@@ -114,6 +124,7 @@ const schema = createInsertSchema(deployments, {
 	composeId: z.string(),
 	description: z.string().optional(),
 	previewDeploymentId: z.string(),
+	buildServerId: z.string(),
 });
 
 export const apiCreateDeployment = schema

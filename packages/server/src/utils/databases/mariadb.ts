@@ -12,7 +12,7 @@ import { getRemoteDocker } from "../servers/remote-docker";
 
 export type MariadbNested = InferResultType<
 	"mariadb",
-	{ mounts: true; project: true }
+	{ mounts: true; environment: { with: { project: true } } }
 >;
 export const buildMariadb = async (mariadb: MariadbNested) => {
 	const {
@@ -29,6 +29,7 @@ export const buildMariadb = async (mariadb: MariadbNested) => {
 		cpuLimit,
 		cpuReservation,
 		command,
+		args,
 		mounts,
 	} = mariadb;
 
@@ -45,6 +46,9 @@ export const buildMariadb = async (mariadb: MariadbNested) => {
 		RollbackConfig,
 		UpdateConfig,
 		Networks,
+		StopGracePeriod,
+		EndpointSpec,
+		Ulimits,
 	} = generateConfigContainer(mariadb);
 	const resources = calculateResources({
 		memoryLimit,
@@ -54,7 +58,8 @@ export const buildMariadb = async (mariadb: MariadbNested) => {
 	});
 	const envVariables = prepareEnvironmentVariables(
 		defaultMariadbEnv,
-		mariadb.project.env,
+		mariadb.environment.project.env,
+		mariadb.environment.env,
 	);
 	const volumesMount = generateVolumeMounts(mounts);
 	const bindsMount = generateBindMounts(mounts);
@@ -70,12 +75,16 @@ export const buildMariadb = async (mariadb: MariadbNested) => {
 				Image: dockerImage,
 				Env: envVariables,
 				Mounts: [...volumesMount, ...bindsMount, ...filesMount],
-				...(command
-					? {
-							Command: ["/bin/sh"],
-							Args: ["-c", command],
-						}
-					: {}),
+				...(StopGracePeriod !== null &&
+					StopGracePeriod !== undefined && { StopGracePeriod }),
+				...(command && {
+					Command: command.split(" "),
+				}),
+				...(args &&
+					args.length > 0 && {
+						Args: args,
+					}),
+				...(Ulimits && { Ulimits }),
 				Labels,
 			},
 			Networks,
@@ -87,19 +96,21 @@ export const buildMariadb = async (mariadb: MariadbNested) => {
 		},
 		Mode,
 		RollbackConfig,
-		EndpointSpec: {
-			Mode: "dnsrr",
-			Ports: externalPort
-				? [
-						{
-							Protocol: "tcp",
-							TargetPort: 3306,
-							PublishedPort: externalPort,
-							PublishMode: "host",
-						},
-					]
-				: [],
-		},
+		EndpointSpec: EndpointSpec
+			? EndpointSpec
+			: {
+					Mode: "dnsrr" as const,
+					Ports: externalPort
+						? [
+								{
+									Protocol: "tcp" as const,
+									TargetPort: 3306,
+									PublishedPort: externalPort,
+									PublishMode: "host" as const,
+								},
+							]
+						: [],
+				},
 		UpdateConfig,
 	};
 	try {

@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRightLeft, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "next-i18next";
+import { useHealthCheckAfterMutation } from "@/hooks/use-health-check-after-mutation";
 import type React from "react";
 import { useEffect, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -76,11 +77,19 @@ export const ManageTraefikPorts = ({ children, serverId }: Props) => {
 		});
 
 	const { mutateAsync: updatePorts, isLoading } =
-		api.settings.updateTraefikPorts.useMutation({
-			onSuccess: () => {
-				refetchPorts();
-			},
-		});
+		api.settings.updateTraefikPorts.useMutation();
+
+	const {
+		execute: executeWithHealthCheck,
+		isExecuting: isHealthCheckExecuting,
+	} = useHealthCheckAfterMutation({
+		initialDelay: 5000,
+		successMessage: t("settings.server.webServer.traefik.portsUpdated"),
+		onSuccess: () => {
+			refetchPorts();
+			setOpen(false);
+		},
+	});
 
 	useEffect(() => {
 		if (currentPorts) {
@@ -99,13 +108,16 @@ export const ManageTraefikPorts = ({ children, serverId }: Props) => {
 
 	const onSubmit = async (data: TraefikPortsForm) => {
 		try {
-			await updatePorts({
-				serverId,
-				additionalPorts: data.ports,
-			});
-			toast.success(t("settings.server.webServer.traefik.portsUpdated"));
+			await executeWithHealthCheck(() =>
+				updatePorts({
+					serverId,
+					additionalPorts: data.ports,
+				}),
+			);
 			setOpen(false);
-		} catch {}
+		} catch (error) {
+			toast.error((error as Error).message || "Error updating Traefik ports");
+		}
 	};
 
 	return (
@@ -156,11 +168,11 @@ export const ManageTraefikPorts = ({ children, serverId }: Props) => {
 										</p>
 									</div>
 								) : (
-									<ScrollArea className="h-[400px] pr-4">
+									<ScrollArea className="pr-4">
 										<div className="grid gap-4">
 											{fields.map((field, index) => (
 												<Card key={field.id} className="bg-transparent">
-													<CardContent className="grid grid-cols-[1fr_1fr_1fr_auto] gap-4 p-4 transparent">
+													<CardContent className="grid grid-cols-4  gap-4 p-4 transparent">
 														<FormField
 															control={form.control}
 															name={`ports.${index}.targetPort`}
@@ -303,13 +315,19 @@ export const ManageTraefikPorts = ({ children, serverId }: Props) => {
 										</div>
 									</AlertBlock>
 								)}
+
+								<AlertBlock type="warning">
+									The Traefik container will be recreated from scratch. This
+									means the container will be deleted and created again, which
+									may cause downtime in your applications.
+								</AlertBlock>
 							</div>
 							<DialogFooter>
 								<Button
 									type="submit"
 									variant="default"
 									className="text-sm"
-									isLoading={isLoading}
+									isLoading={isLoading || isHealthCheckExecuting}
 								>
 									Save
 								</Button>

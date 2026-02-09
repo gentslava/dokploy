@@ -1,22 +1,22 @@
-import { db } from "@/server/db";
-import { applications, compose, github } from "@/server/db/schema";
-import type { DeploymentJob } from "@/server/queues/queue-types";
-import { myQueue } from "@/server/queues/queueSetup";
-import { deploy } from "@/server/utils/deploy";
 import {
-	IS_CLOUD,
 	checkUserRepositoryPermissions,
 	createPreviewDeployment,
 	createSecurityBlockedComment,
 	findGithubById,
 	findPreviewDeploymentByApplicationId,
 	findPreviewDeploymentsByPullRequestId,
+	IS_CLOUD,
 	removePreviewDeployment,
 	shouldDeploy,
 } from "@dokploy/server";
 import { Webhooks } from "@octokit/webhooks";
 import { and, eq } from "drizzle-orm";
 import type { NextApiRequest, NextApiResponse } from "next";
+import { db } from "@/server/db";
+import { applications, compose, github } from "@/server/db/schema";
+import type { DeploymentJob } from "@/server/queues/queue-types";
+import { myQueue } from "@/server/queues/queueSetup";
+import { deploy } from "@/server/utils/deploy";
 import { extractCommitMessage, extractHash } from "./[refreshToken]";
 
 export default async function handler(
@@ -128,7 +128,9 @@ export default async function handler(
 
 				if (IS_CLOUD && app.serverId) {
 					jobData.serverId = app.serverId;
-					await deploy(jobData);
+					deploy(jobData).catch((error) => {
+						console.error("Background deployment failed:", error);
+					});
 					continue;
 				}
 				await myQueue.add(
@@ -165,7 +167,9 @@ export default async function handler(
 
 				if (IS_CLOUD && composeApp.serverId) {
 					jobData.serverId = composeApp.serverId;
-					await deploy(jobData);
+					deploy(jobData).catch((error) => {
+						console.error("Background deployment failed:", error);
+					});
 					continue;
 				}
 
@@ -246,7 +250,9 @@ export default async function handler(
 
 				if (IS_CLOUD && app.serverId) {
 					jobData.serverId = app.serverId;
-					await deploy(jobData);
+					deploy(jobData).catch((error) => {
+						console.error("Background deployment failed:", error);
+					});
 					continue;
 				}
 				await myQueue.add(
@@ -291,7 +297,9 @@ export default async function handler(
 				}
 				if (IS_CLOUD && composeApp.serverId) {
 					jobData.serverId = composeApp.serverId;
-					await deploy(jobData);
+					deploy(jobData).catch((error) => {
+						console.error("Background deployment failed:", error);
+					});
 					continue;
 				}
 
@@ -343,8 +351,15 @@ export default async function handler(
 		if (
 			action === "opened" ||
 			action === "synchronize" ||
-			action === "reopened"
+			action === "reopened" ||
+			action === "labeled" ||
+			action === "unlabeled"
 		) {
+			const shouldCreateDeployment =
+				action === "opened" ||
+				action === "synchronize" ||
+				action === "reopened";
+
 			const repository = githubBody?.repository?.name;
 			const deploymentHash = githubBody?.pull_request?.head?.sha;
 			const branch = githubBody?.pull_request?.base?.ref;
@@ -442,6 +457,19 @@ export default async function handler(
 			}
 
 			for (const app of secureApps) {
+				// check for labels
+				if (app?.previewLabels && app?.previewLabels?.length > 0) {
+					let hasLabel = false;
+					const labels = githubBody?.pull_request?.labels;
+					for (const label of labels) {
+						if (app?.previewLabels?.includes(label.name)) {
+							hasLabel = true;
+							break;
+						}
+					}
+					if (!hasLabel) continue;
+				}
+
 				const previewLimit = app?.previewLimit || 0;
 				if (app?.previewDeployments?.length > previewLimit) {
 					continue;
@@ -452,7 +480,7 @@ export default async function handler(
 				let previewDeploymentId =
 					previewDeploymentResult?.previewDeploymentId || "";
 
-				if (!previewDeploymentResult) {
+				if (!previewDeploymentResult && shouldCreateDeployment) {
 					const previewDeployment = await createPreviewDeployment({
 						applicationId: app.applicationId as string,
 						branch: prBranch,
@@ -474,19 +502,23 @@ export default async function handler(
 					previewDeploymentId,
 				};
 
-				if (IS_CLOUD && app.serverId) {
-					jobData.serverId = app.serverId;
-					await deploy(jobData);
-					continue;
+				if (previewDeploymentId) {
+					if (IS_CLOUD && app.serverId) {
+						jobData.serverId = app.serverId;
+						deploy(jobData).catch((error) => {
+							console.error("Background deployment failed:", error);
+						});
+						continue;
+					}
+					await myQueue.add(
+						"deployments",
+						{ ...jobData },
+						{
+							removeOnComplete: true,
+							removeOnFail: true,
+						},
+					);
 				}
-				await myQueue.add(
-					"deployments",
-					{ ...jobData },
-					{
-						removeOnComplete: true,
-						removeOnFail: true,
-					},
-				);
 			}
 			return res.status(200).json({ message: "Apps Deployed" });
 		}

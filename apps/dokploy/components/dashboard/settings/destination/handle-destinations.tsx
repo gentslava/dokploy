@@ -1,3 +1,9 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { PenBoxIcon, PlusIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
 import { AlertBlock } from "@/components/shared/alert-block";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,12 +35,6 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { api } from "@/utils/api";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { PenBoxIcon, PlusIcon } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import { z } from "zod";
 import { S3_PROVIDERS } from "./constants";
 
 const addDestination = z.object({
@@ -122,6 +122,9 @@ export const HandleDestinations = ({ destinationId }: Props) => {
 			.then(async () => {
 				toast.success(`Destination ${destinationId ? "Updated" : "Created"}`);
 				await utils.destination.all.invalidate();
+				if (destinationId) {
+					await utils.destination.one.invalidate({ destinationId });
+				}
 				setOpen(false);
 			})
 			.catch(() => {
@@ -217,7 +220,7 @@ export const HandleDestinations = ({ destinationId }: Props) => {
 					</DialogDescription>
 				</DialogHeader>
 				{(isError || isErrorConnection) && (
-					<AlertBlock type="error" className="break-words">
+					<AlertBlock type="error" className="w-full">
 						{connectionError?.message || error?.message}
 					</AlertBlock>
 				)}

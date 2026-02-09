@@ -3,6 +3,7 @@ import {
 	createDeploymentBackup,
 	updateDeploymentStatus,
 } from "@dokploy/server/services/deployment";
+import { findEnvironmentById } from "@dokploy/server/services/environment";
 import type { Mariadb } from "@dokploy/server/services/mariadb";
 import { findProjectById } from "@dokploy/server/services/project";
 import { sendDatabaseBackupNotifications } from "../notifications/database-backup";
@@ -13,8 +14,9 @@ export const runMariadbBackup = async (
 	mariadb: Mariadb,
 	backup: BackupSchedule,
 ) => {
-	const { projectId, name } = mariadb;
-	const project = await findProjectById(projectId);
+	const { environmentId, name } = mariadb;
+	const environment = await findEnvironmentById(environmentId);
+	const project = await findProjectById(environment.projectId);
 	const { prefix } = backup;
 	const destination = backup.destination;
 	const backupFileName = `${new Date().toISOString()}.sql.gz`;

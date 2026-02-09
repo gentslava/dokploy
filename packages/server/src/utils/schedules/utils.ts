@@ -1,24 +1,34 @@
 import { createWriteStream } from "node:fs";
 import path from "node:path";
-import { paths } from "@dokploy/server/constants";
+import { IS_CLOUD, paths } from "@dokploy/server/constants";
 import type { Schedule } from "@dokploy/server/db/schema/schedule";
 import {
 	createDeploymentSchedule,
 	updateDeployment,
+	updateDeploymentStatus,
 } from "@dokploy/server/services/deployment";
-import { updateDeploymentStatus } from "@dokploy/server/services/deployment";
 import { findScheduleById } from "@dokploy/server/services/schedule";
-import { scheduleJob as scheduleJobNode, scheduledJobs } from "node-schedule";
+import { scheduledJobs, scheduleJob as scheduleJobNode } from "node-schedule";
 import { getComposeContainer, getServiceContainer } from "../docker/utils";
 import { execAsyncRemote } from "../process/execAsync";
 import { spawnAsync } from "../process/spawnAsync";
 
 export const scheduleJob = (schedule: Schedule) => {
-	const { cronExpression, scheduleId } = schedule;
+	const { cronExpression, scheduleId, timezone } = schedule;
 
-	scheduleJobNode(scheduleId, cronExpression, async () => {
-		await runCommand(scheduleId);
-	});
+	// Use timezone from schedule, default to UTC if not specified
+	const tz = timezone || "UTC";
+
+	scheduleJobNode(
+		scheduleId,
+		{
+			tz,
+			rule: cronExpression,
+		},
+		async () => {
+			await runCommand(scheduleId);
+		},
+	);
 };
 
 export const removeScheduleJob = (scheduleId: string) => {
@@ -83,6 +93,13 @@ export const runCommand = async (scheduleId: string) => {
 			const writeStream = createWriteStream(deployment.logPath, { flags: "a" });
 
 			try {
+				if (IS_CLOUD) {
+					writeStream.write(
+						"This feature is not available in the cloud version.",
+					);
+					writeStream.end();
+					return;
+				}
 				writeStream.write(
 					`docker exec ${containerId} ${shellType} -c ${command}\n`,
 				);

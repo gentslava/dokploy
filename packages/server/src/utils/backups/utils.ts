@@ -1,7 +1,7 @@
 import { logger } from "@dokploy/server/lib/logger";
 import type { BackupSchedule } from "@dokploy/server/services/backup";
 import type { Destination } from "@dokploy/server/services/destination";
-import { scheduleJob, scheduledJobs } from "node-schedule";
+import { scheduledJobs, scheduleJob } from "node-schedule";
 import { keepLatestNBackups } from ".";
 import { runComposeBackup } from "./compose";
 import { runMariadbBackup } from "./mariadb";
@@ -62,16 +62,16 @@ export const getS3Credentials = (destination: Destination) => {
 	const { accessKey, secretAccessKey, region, endpoint, provider } =
 		destination;
 	const rcloneFlags = [
-		`--s3-access-key-id=${accessKey}`,
-		`--s3-secret-access-key=${secretAccessKey}`,
-		`--s3-region=${region}`,
-		`--s3-endpoint=${endpoint}`,
+		`--s3-access-key-id="${accessKey}"`,
+		`--s3-secret-access-key="${secretAccessKey}"`,
+		`--s3-region="${region}"`,
+		`--s3-endpoint="${endpoint}"`,
 		"--s3-no-check-bucket",
 		"--s3-force-path-style",
 	];
 
 	if (provider) {
-		rcloneFlags.unshift(`--s3-provider=${provider}`);
+		rcloneFlags.unshift(`--s3-provider="${provider}"`);
 	}
 
 	return rcloneFlags;
@@ -89,7 +89,7 @@ export const getMariadbBackupCommand = (
 	databaseUser: string,
 	databasePassword: string,
 ) => {
-	return `docker exec -i $CONTAINER_ID bash -c "set -o pipefail; mariadb-dump --user='${databaseUser}' --password='${databasePassword}' --databases ${database} | gzip"`;
+	return `docker exec -i $CONTAINER_ID bash -c "set -o pipefail; mariadb-dump --user='${databaseUser}' --password='${databasePassword}' --single-transaction --quick --databases ${database} | gzip"`;
 };
 
 export const getMysqlBackupCommand = (

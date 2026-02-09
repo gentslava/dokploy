@@ -12,12 +12,32 @@ export default async function handler(
 	}
 
 	const gitlab = await findGitlabById(gitlabId as string);
+	// Use internal URL for token exchange when GitLab is on same instance as Dokploy
+	const baseUrl = gitlab.gitlabInternalUrl || gitlab.gitlabUrl;
+	const gitlabUrl = new URL(baseUrl);
 
-	const response = await fetch(`${gitlab.gitlabUrl}/oauth/token`, {
+	const headers: HeadersInit = {
+		"Content-Type": "application/x-www-form-urlencoded",
+	};
+
+	// In case of basic auth being present in the URL, we need to remove it from the URL
+	// and add it to the Authorization header.
+	if (gitlabUrl.username && gitlabUrl.password) {
+		headers.Authorization = `Basic ${Buffer.from(`${gitlabUrl.username}:${gitlabUrl.password}`).toString("base64")}`;
+	}
+
+	const url =
+		gitlabUrl.username && gitlabUrl.password
+			? new URL(gitlabUrl, {
+					...gitlabUrl,
+					username: "",
+					password: "",
+				}).toString()
+			: gitlabUrl.toString();
+
+	const response = await fetch(`${url}/oauth/token`, {
 		method: "POST",
-		headers: {
-			"Content-Type": "application/x-www-form-urlencoded",
-		},
+		headers,
 		body: new URLSearchParams({
 			client_id: gitlab.applicationId as string,
 			client_secret: gitlab.secret as string,

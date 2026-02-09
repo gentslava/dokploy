@@ -3,6 +3,7 @@ import {
 	createDeploymentBackup,
 	updateDeploymentStatus,
 } from "@dokploy/server/services/deployment";
+import { findEnvironmentById } from "@dokploy/server/services/environment";
 import type { Postgres } from "@dokploy/server/services/postgres";
 import { findProjectById } from "@dokploy/server/services/project";
 import { sendDatabaseBackupNotifications } from "../notifications/database-backup";
@@ -13,8 +14,9 @@ export const runPostgresBackup = async (
 	postgres: Postgres,
 	backup: BackupSchedule,
 ) => {
-	const { name, projectId } = postgres;
-	const project = await findProjectById(projectId);
+	const { name, environmentId } = postgres;
+	const environment = await findEnvironmentById(environmentId);
+	const project = await findProjectById(environment.projectId);
 
 	const deployment = await createDeploymentBackup({
 		backupId: backup.backupId,

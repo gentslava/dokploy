@@ -11,6 +11,7 @@ import { deploymentRouter } from "./routers/deployment";
 import { destinationRouter } from "./routers/destination";
 import { dockerRouter } from "./routers/docker";
 import { domainRouter } from "./routers/domain";
+import { environmentRouter } from "./routers/environment";
 import { gitProviderRouter } from "./routers/git-provider";
 import { giteaRouter } from "./routers/gitea";
 import { githubRouter } from "./routers/github";
@@ -21,6 +22,8 @@ import { mountRouter } from "./routers/mount";
 import { mysqlRouter } from "./routers/mysql";
 import { notificationRouter } from "./routers/notification";
 import { organizationRouter } from "./routers/organization";
+import { licenseKeyRouter } from "./routers/proprietary/license-key";
+import { ssoRouter } from "./routers/proprietary/sso";
 import { portRouter } from "./routers/port";
 import { postgresRouter } from "./routers/postgres";
 import { previewDeploymentRouter } from "./routers/preview-deployment";
@@ -81,9 +84,12 @@ export const appRouter = createTRPCRouter({
 	swarm: swarmRouter,
 	ai: aiRouter,
 	organization: organizationRouter,
+	licenseKey: licenseKeyRouter,
+	sso: ssoRouter,
 	schedule: scheduleRouter,
 	rollback: rollbackRouter,
 	volumeBackups: volumeBackupsRouter,
+	environment: environmentRouter,
 });
 
 // export type definition of API

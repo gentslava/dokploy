@@ -1,5 +1,7 @@
 import { useTranslation } from "next-i18next";
 import { toast } from "sonner";
+import { AlertBlock } from "@/components/shared/alert-block";
+import { DialogAction } from "@/components/shared/dialog-action";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -10,6 +12,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useHealthCheckAfterMutation } from "@/hooks/use-health-check-after-mutation";
 import { api } from "@/utils/api";
 import { EditTraefikEnv } from "../../web-server/edit-traefik-env";
 import { ManageTraefikPorts } from "../../web-server/manage-traefik-ports";
@@ -31,14 +34,45 @@ export const ShowTraefikActions = ({ serverId }: Props) => {
 			serverId,
 		});
 
+	const {
+		execute: executeWithHealthCheck,
+		isExecuting: isHealthCheckExecuting,
+	} = useHealthCheckAfterMutation({
+		initialDelay: 5000,
+		pollInterval: 4000,
+		successMessage: "Traefik dashboard updated successfully",
+		onSuccess: () => {
+			refetchDashboard();
+		},
+	});
+
+	const {
+		execute: executeReloadWithHealthCheck,
+		isExecuting: isReloadHealthCheckExecuting,
+	} = useHealthCheckAfterMutation({
+		initialDelay: 5000,
+		pollInterval: 4000,
+		successMessage: "Traefik Reloaded",
+	});
+
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
 				asChild
-				disabled={reloadTraefikIsLoading || toggleDashboardIsLoading}
+				disabled={
+					reloadTraefikIsLoading ||
+					toggleDashboardIsLoading ||
+					isHealthCheckExecuting ||
+					isReloadHealthCheckExecuting
+				}
 			>
 				<Button
-					isLoading={reloadTraefikIsLoading || toggleDashboardIsLoading}
+					isLoading={
+						reloadTraefikIsLoading ||
+						toggleDashboardIsLoading ||
+						isHealthCheckExecuting ||
+						isReloadHealthCheckExecuting
+					}
 					variant="outline"
 				>
 					{t("settings.server.webServer.traefik.label")}
@@ -52,15 +86,19 @@ export const ShowTraefikActions = ({ serverId }: Props) => {
 				<DropdownMenuGroup>
 					<DropdownMenuItem
 						onClick={async () => {
-							await reloadTraefik({
-								serverId: serverId,
-							})
-								.then(async () => {
-									toast.success("Traefik Reloaded");
-								})
-								.catch(() => {});
+							try {
+								await executeReloadWithHealthCheck(() =>
+									reloadTraefik({ serverId }),
+								);
+							} catch (error) {
+								const errorMessage =
+									(error as Error)?.message ||
+									"Failed to reload Traefik. Please try again.";
+								toast.error(errorMessage);
+							}
 						}}
 						className="cursor-pointer"
+						disabled={isReloadHealthCheckExecuting}
 					>
 						<span>{t("settings.server.webServer.reload")}</span>
 					</DropdownMenuItem>
@@ -85,30 +123,54 @@ export const ShowTraefikActions = ({ serverId }: Props) => {
 						</DropdownMenuItem>
 					</EditTraefikEnv>
 
-					<DropdownMenuItem
+					<DialogAction
+						title={
+							haveTraefikDashboardPortEnabled
+								? "Disable Traefik Dashboard"
+								: "Enable Traefik Dashboard"
+						}
+						description={
+							<div className="space-y-4">
+								<AlertBlock type="warning">
+									The Traefik container will be recreated from scratch. This
+									means the container will be deleted and created again, which
+									may cause downtime in your applications.
+								</AlertBlock>
+								<p>
+									Are you sure you want to{" "}
+									{haveTraefikDashboardPortEnabled ? "disable" : "enable"} the
+									Traefik dashboard?
+								</p>
+							</div>
+						}
 						onClick={async () => {
-							await toggleDashboard({
-								enableDashboard: !haveTraefikDashboardPortEnabled,
-								serverId: serverId,
-							})
-								.then(async () => {
-									toast.success(
-										`${haveTraefikDashboardPortEnabled ? "Disabled" : "Enabled"} Dashboard`,
-									);
-									refetchDashboard();
-								})
-								.catch(() => {
-									toast.error(
-										`${haveTraefikDashboardPortEnabled ? "Disabled" : "Enabled"} Dashboard`,
-									);
-								});
+							try {
+								await executeWithHealthCheck(() =>
+									toggleDashboard({
+										enableDashboard: !haveTraefikDashboardPortEnabled,
+										serverId: serverId,
+									}),
+								);
+							} catch (error) {
+								const errorMessage =
+									(error as Error)?.message ||
+									"Failed to toggle dashboard. Please check if port 8080 is available.";
+								toast.error(errorMessage);
+							}
 						}}
-						className="w-full cursor-pointer space-x-3"
+						disabled={toggleDashboardIsLoading || isHealthCheckExecuting}
+						type="default"
 					>
-						<span>
-							{haveTraefikDashboardPortEnabled ? "Disable" : "Enable"} Dashboard
-						</span>
-					</DropdownMenuItem>
+						<DropdownMenuItem
+							onSelect={(e) => e.preventDefault()}
+							className="w-full cursor-pointer space-x-3"
+						>
+							<span>
+								{haveTraefikDashboardPortEnabled ? "Disable" : "Enable"}{" "}
+								Dashboard
+							</span>
+						</DropdownMenuItem>
+					</DialogAction>
 					<ManageTraefikPorts serverId={serverId}>
 						<DropdownMenuItem
 							onSelect={(e) => e.preventDefault()}

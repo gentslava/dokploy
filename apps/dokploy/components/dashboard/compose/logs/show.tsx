@@ -1,5 +1,8 @@
+import { Loader2 } from "lucide-react";
 import { badgeStateColor } from "@/components/dashboard/application/logs/show";
 import { Badge } from "@/components/ui/badge";
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
 import {
 	Card,
 	CardContent,
@@ -18,9 +21,6 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { api } from "@/utils/api";
-import { Loader2 } from "lucide-react";
-import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
 export const DockerLogs = dynamic(
 	() =>
 		import("@/components/dashboard/docker/logs/docker-logs-id").then(
@@ -93,6 +93,7 @@ export const ShowDockerLogsCompose = ({
 									<Badge variant={badgeStateColor(container.state)}>
 										{container.state}
 									</Badge>
+									{container.status ? ` ${container.status}` : ""}
 								</SelectItem>
 							))}
 							<SelectLabel>Containers ({data?.length})</SelectLabel>

@@ -1,14 +1,16 @@
 import { relations } from "drizzle-orm";
-import { integer, json, pgTable, text } from "drizzle-orm/pg-core";
+import { bigint, integer, json, pgTable, text } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { backups } from "./backups";
+import { environments } from "./environment";
 import { mounts } from "./mount";
-import { projects } from "./project";
 import { server } from "./server";
 import {
 	applicationStatus,
+	type EndpointSpecSwarm,
+	EndpointSpecSwarmSchema,
 	type HealthCheckSwarm,
 	HealthCheckSwarmSchema,
 	type LabelsSwarm,
@@ -21,10 +23,12 @@ import {
 	RestartPolicySwarmSchema,
 	type ServiceModeSwarm,
 	ServiceModeSwarmSchema,
+	type UlimitsSwarm,
+	UlimitsSwarmSchema,
 	type UpdateConfigSwarm,
 	UpdateConfigSwarmSchema,
 } from "./shared";
-import { generateAppName } from "./utils";
+import { APP_NAME_MESSAGE, APP_NAME_REGEX, generateAppName } from "./utils";
 
 export const postgres = pgTable("postgres", {
 	postgresId: text("postgresId")
@@ -42,6 +46,7 @@ export const postgres = pgTable("postgres", {
 	description: text("description"),
 	dockerImage: text("dockerImage").notNull(),
 	command: text("command"),
+	args: text("args").array(),
 	env: text("env"),
 	memoryReservation: text("memoryReservation"),
 	externalPort: integer("externalPort"),
@@ -60,22 +65,26 @@ export const postgres = pgTable("postgres", {
 	modeSwarm: json("modeSwarm").$type<ServiceModeSwarm>(),
 	labelsSwarm: json("labelsSwarm").$type<LabelsSwarm>(),
 	networkSwarm: json("networkSwarm").$type<NetworkSwarm[]>(),
+	stopGracePeriodSwarm: bigint("stopGracePeriodSwarm", { mode: "bigint" }),
+	endpointSpecSwarm: json("endpointSpecSwarm").$type<EndpointSpecSwarm>(),
+	ulimitsSwarm: json("ulimitsSwarm").$type<UlimitsSwarm>(),
 	replicas: integer("replicas").default(1).notNull(),
 	createdAt: text("createdAt")
 		.notNull()
 		.$defaultFn(() => new Date().toISOString()),
-	projectId: text("projectId")
+
+	environmentId: text("environmentId")
 		.notNull()
-		.references(() => projects.projectId, { onDelete: "cascade" }),
+		.references(() => environments.environmentId, { onDelete: "cascade" }),
 	serverId: text("serverId").references(() => server.serverId, {
 		onDelete: "cascade",
 	}),
 });
 
 export const postgresRelations = relations(postgres, ({ one, many }) => ({
-	project: one(projects, {
-		fields: [postgres.projectId],
-		references: [projects.projectId],
+	environment: one(environments, {
+		fields: [postgres.environmentId],
+		references: [environments.environmentId],
 	}),
 	backups: many(backups),
 	mounts: many(mounts),
@@ -88,17 +97,29 @@ export const postgresRelations = relations(postgres, ({ one, many }) => ({
 const createSchema = createInsertSchema(postgres, {
 	postgresId: z.string(),
 	name: z.string().min(1),
-	databasePassword: z.string(),
+	appName: z
+		.string()
+		.min(1)
+		.max(63)
+		.regex(APP_NAME_REGEX, APP_NAME_MESSAGE)
+		.optional(),
+	databasePassword: z
+		.string()
+		.regex(/^[a-zA-Z0-9@#%^&*()_+\-=[\]{}|;:,.<>?~`]*$/, {
+			message:
+				"Password contains invalid characters. Please avoid: $ ! ' \" \\ / and space characters for database compatibility",
+		}),
 	databaseName: z.string().min(1),
 	databaseUser: z.string().min(1),
-	dockerImage: z.string().default("postgres:15"),
+	dockerImage: z.string().default("postgres:18"),
 	command: z.string().optional(),
+	args: z.array(z.string()).optional(),
 	env: z.string().optional(),
 	memoryReservation: z.string().optional(),
 	memoryLimit: z.string().optional(),
 	cpuReservation: z.string().optional(),
 	cpuLimit: z.string().optional(),
-	projectId: z.string(),
+	environmentId: z.string(),
 	applicationStatus: z.enum(["idle", "running", "done", "error"]),
 	externalPort: z.number(),
 	createdAt: z.string(),
@@ -112,21 +133,22 @@ const createSchema = createInsertSchema(postgres, {
 	modeSwarm: ServiceModeSwarmSchema.nullable(),
 	labelsSwarm: LabelsSwarmSchema.nullable(),
 	networkSwarm: NetworkSwarmSchema.nullable(),
+	stopGracePeriodSwarm: z.bigint().nullable(),
+	endpointSpecSwarm: EndpointSpecSwarmSchema.nullable(),
+	ulimitsSwarm: UlimitsSwarmSchema.nullable(),
 });
 
-export const apiCreatePostgres = createSchema
-	.pick({
-		name: true,
-		appName: true,
-		databaseName: true,
-		databaseUser: true,
-		databasePassword: true,
-		dockerImage: true,
-		projectId: true,
-		description: true,
-		serverId: true,
-	})
-	.required();
+export const apiCreatePostgres = createSchema.pick({
+	name: true,
+	appName: true,
+	databaseName: true,
+	databaseUser: true,
+	databasePassword: true,
+	dockerImage: true,
+	environmentId: true,
+	description: true,
+	serverId: true,
+});
 
 export const apiFindOnePostgres = createSchema
 	.pick({

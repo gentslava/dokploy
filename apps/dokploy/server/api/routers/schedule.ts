@@ -1,6 +1,4 @@
-import { removeJob, schedule } from "@/server/utils/backup";
-import { IS_CLOUD, scheduleJob } from "@dokploy/server";
-import { removeScheduleJob } from "@dokploy/server";
+import { IS_CLOUD, removeScheduleJob, scheduleJob } from "@dokploy/server";
 import { db } from "@dokploy/server/db";
 import { deployments } from "@dokploy/server/db/schema/deployment";
 import {
@@ -18,6 +16,7 @@ import {
 import { TRPCError } from "@trpc/server";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
+import { removeJob, schedule } from "@/server/utils/backup";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 export const scheduleRouter = createTRPCRouter({
 	create: protectedProcedure
@@ -31,6 +30,7 @@ export const scheduleRouter = createTRPCRouter({
 						scheduleId: newSchedule.scheduleId,
 						type: "schedule",
 						cronSchedule: newSchedule.cronExpression,
+						timezone: newSchedule.timezone,
 					});
 				} else {
 					scheduleJob(newSchedule);
@@ -50,6 +50,7 @@ export const scheduleRouter = createTRPCRouter({
 						scheduleId: updatedSchedule.scheduleId,
 						type: "schedule",
 						cronSchedule: updatedSchedule.cronExpression,
+						timezone: updatedSchedule.timezone,
 					});
 				} else {
 					await removeJob({
