@@ -18,6 +18,8 @@ import { getHubSpotUTK, submitToHubSpot } from "../utils/tracking/hubspot";
 import { sendEmail } from "../verification/send-verification-email";
 import { getPublicIpWithFallback } from "../wss/utils";
 
+const trustedProviders = process.env?.TRUSTED_PROVIDERS?.split(",") || [];
+
 const { handler, api } = betterAuth({
 	database: drizzleAdapter(db, {
 		provider: "pg",
@@ -43,6 +45,14 @@ const { handler, api } = betterAuth({
 				},
 			}
 		: {}),
+
+	account: {
+		accountLinking: {
+			enabled: true,
+			trustedProviders: ["github", "google", ...(trustedProviders || [])],
+			allowDifferentEmails: true,
+		},
+	},
 	appName: "Dokploy",
 	socialProviders: {
 		github: {
@@ -337,6 +347,7 @@ export const auth = {
 	handler,
 	createApiKey: api.createApiKey,
 	registerSSOProvider: api.registerSSOProvider,
+	updateSSOProvider: api.updateSSOProvider,
 };
 
 export const validateRequest = async (request: IncomingMessage) => {
@@ -350,7 +361,7 @@ export const validateRequest = async (request: IncomingMessage) => {
 			});
 
 			if (error) {
-				throw new Error(error.message || "Error verifying API key");
+				throw new Error(error.message?.toString() || "Error verifying API key");
 			}
 			if (!valid || !key) {
 				return {
