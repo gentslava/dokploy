@@ -230,13 +230,18 @@ install_dokploy() {
 
     chmod 777 /etc/dokploy
 
-    # Generate secure random password for Postgres
-    POSTGRES_PASSWORD=$(generate_random_password)
-    
-    # Store password as Docker Secret (encrypted and secure)
-    echo "$POSTGRES_PASSWORD" | docker secret create dokploy_postgres_password - 2>/dev/null || true
-    
-    echo "Generated secure database credentials (stored in Docker Secrets)"
+    # Check if secret already exists
+    if docker secret ls 2>/dev/null | grep -q "dokploy_postgres_password"; then
+        echo "Secure credentials already exist, skipping password generation"
+    else
+        # Generate secure random password for Postgres
+        POSTGRES_PASSWORD=$(generate_random_password)
+        
+        # Store password as Docker Secret (encrypted and secure)
+        echo "$POSTGRES_PASSWORD" | docker secret create dokploy_postgres_password -
+        
+        echo "Generated secure database credentials (stored in Docker Secrets)"
+    fi
 
     docker service create \
     --name dokploy-postgres \
