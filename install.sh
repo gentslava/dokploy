@@ -78,6 +78,68 @@ generate_random_password() {
     echo "$password"
 }
 
+persist_postgres_password() {
+    local password="$1"
+    local secret_dir="/etc/dokploy/secrets"
+    local secret_file="${secret_dir}/postgres_password"
+
+    mkdir -p "$secret_dir"
+    chmod 700 "$secret_dir"
+    (
+        umask 077
+        printf '%s\n' "$password" > "$secret_file"
+    )
+    chmod 600 "$secret_file"
+}
+
+load_saved_postgres_password() {
+    local secret_file="/etc/dokploy/secrets/postgres_password"
+
+    if [ -r "$secret_file" ]; then
+        head -n1 "$secret_file"
+        return 0
+    fi
+
+    return 1
+}
+
+load_postgres_password_from_service() {
+    local service_name="$1"
+    local container_id=""
+
+    container_id=$(docker ps --filter "label=com.docker.swarm.service.name=${service_name}" --format '{{.ID}}' | head -n1)
+
+    if [ -z "$container_id" ]; then
+        return 1
+    fi
+
+    docker exec "$container_id" cat /run/secrets/postgres_password 2>/dev/null
+}
+
+recover_existing_postgres_password() {
+    local password=""
+
+    password=$(load_saved_postgres_password 2>/dev/null)
+    if [ -n "$password" ]; then
+        echo "$password"
+        return 0
+    fi
+
+    password=$(load_postgres_password_from_service dokploy-postgres 2>/dev/null)
+    if [ -n "$password" ]; then
+        echo "$password"
+        return 0
+    fi
+
+    password=$(load_postgres_password_from_service dokploy 2>/dev/null)
+    if [ -n "$password" ]; then
+        echo "$password"
+        return 0
+    fi
+
+    return 1
+}
+
 install_dokploy() {
     # Detect version tag
     VERSION_TAG=$(detect_version)
@@ -221,6 +283,8 @@ install_dokploy() {
 
     echo "Swarm initialized"
 
+    existing_postgres_password=$(recover_existing_postgres_password 2>/dev/null || true)
+
     docker network rm -f dokploy-network 2>/dev/null
     docker network create --driver overlay --attachable dokploy-network
 
@@ -230,17 +294,30 @@ install_dokploy() {
 
     chmod 777 /etc/dokploy
 
-    # Check if secret already exists
-    if docker secret ls 2>/dev/null | grep -q "dokploy_postgres_password"; then
+    # Docker secrets belong to the swarm, so recreate the secret after swarm init if needed.
+    if docker secret inspect dokploy_postgres_password >/dev/null 2>&1; then
         echo "Secure credentials already exist, skipping password generation"
     else
-        # Generate secure random password for Postgres
-        POSTGRES_PASSWORD=$(generate_random_password)
-        
+        if [ -n "$existing_postgres_password" ]; then
+            POSTGRES_PASSWORD="$existing_postgres_password"
+            echo "Restoring existing database credentials into Docker Secrets"
+        else
+            POSTGRES_PASSWORD=$(generate_random_password)
+        fi
+
         # Store password as Docker Secret (encrypted and secure)
-        echo "$POSTGRES_PASSWORD" | docker secret create dokploy_postgres_password -
-        
-        echo "Generated secure database credentials (stored in Docker Secrets)"
+        if ! printf '%s\n' "$POSTGRES_PASSWORD" | docker secret create dokploy_postgres_password - >/dev/null 2>&1; then
+            echo "Error: Failed to create Docker secret dokploy_postgres_password" >&2
+            exit 1
+        fi
+
+        persist_postgres_password "$POSTGRES_PASSWORD"
+
+        if [ -n "$existing_postgres_password" ]; then
+            echo "Restored existing database credentials (stored in Docker Secrets)"
+        else
+            echo "Generated secure database credentials (stored in Docker Secrets)"
+        fi
     fi
 
     docker service create \

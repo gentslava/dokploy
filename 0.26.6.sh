@@ -36,6 +36,20 @@ generate_random_password() {
     echo "$password"
 }
 
+persist_postgres_password() {
+    local password="$1"
+    local secret_dir="/etc/dokploy/secrets"
+    local secret_file="${secret_dir}/postgres_password"
+
+    mkdir -p "$secret_dir"
+    chmod 700 "$secret_dir"
+    (
+        umask 077
+        printf '%s\n' "$password" > "$secret_file"
+    )
+    chmod 600 "$secret_file"
+}
+
 # Check if Dokploy is installed
 if ! docker service ls 2>/dev/null | grep -q dokploy; then
     echo "Error: Dokploy service not found. Is Dokploy installed?" >&2
@@ -64,6 +78,8 @@ echo ""
 # Generate new secure password
 echo "🔐 Generating secure credentials..."
 NEW_PASSWORD=$(generate_random_password)
+
+persist_postgres_password "$NEW_PASSWORD"
 
 # Store in Docker Secret (encrypted and secure)
 echo "$NEW_PASSWORD" | docker secret create dokploy_postgres_password - 2>/dev/null
