@@ -20,8 +20,8 @@ detect_version() {
             https://github.com/gentslava/dokploy/releases/latest 2>/dev/null | \
             sed 's#.*/tag/##')
         
-        # Fallback to latest tag if detection fails
-        if [ -z "$version" ]; then
+        # Fallback to latest tag if detection fails or if no releases exist
+        if [ -z "$version" ] || ! echo "$version" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+'; then
             echo "Warning: Could not detect latest version from GitHub, using fallback version latest" >&2
             version="latest"
         else
