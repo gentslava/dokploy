@@ -32,7 +32,7 @@ export const getDokployImageTag = () => {
 /** Returns Dokploy docker service image digest */
 export const getServiceImageDigest = async () => {
   const { stdout } = await execAsync(
-    "docker service inspect dokploy --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'"
+    "docker service inspect dokploy --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'",
   );
 
   const currentDigest = stdout.trim().split("@")[1];
@@ -46,7 +46,7 @@ export const getServiceImageDigest = async () => {
 
 /** Returns latest version number and information whether server update is available by comparing current image's digest against digest for provided image tag via Docker hub API. */
 export const getUpdateData = async (
-  currentVersion: string
+  currentVersion: string,
 ): Promise<IUpdateData> => {
   try {
     const baseUrl =
@@ -79,7 +79,7 @@ export const getUpdateData = async (
     if (currentImageTag === "canary" || currentImageTag === "feature") {
       const currentDigest = await getServiceImageDigest();
       const latestDigest = allResults.find(
-        (t) => t.name === currentImageTag
+        (t) => t.name === currentImageTag,
       )?.digest;
       if (!latestDigest) {
         return DEFAULT_UPDATE_DATA;
@@ -106,7 +106,7 @@ export const getUpdateData = async (
 
     // Find the versioned tag (v0.x.x) that has the same digest as "latest"
     const latestVersionTag = allResults.find(
-      (t) => t.digest === latestTag.digest && t.name.startsWith("v")
+      (t) => t.digest === latestTag.digest && t.name.startsWith("v"),
     );
 
     if (!latestVersionTag) {
@@ -145,7 +145,7 @@ interface TreeDataItem {
 
 export const readDirectory = async (
   dirPath: string,
-  serverId?: string
+  serverId?: string,
 ): Promise<TreeDataItem[]> => {
   if (serverId) {
     const { stdout } = await execAsyncRemote(
@@ -196,7 +196,7 @@ root_dir=${dirPath}
 process_items "$root_dir" json_output
 
 echo "$json_output"
-			`
+			`,
     );
     const result = JSON.parse(stdout);
     return result;
@@ -246,7 +246,7 @@ echo "$json_output"
 
 export const getDockerResourceType = async (
   resourceName: string,
-  serverId?: string
+  serverId?: string,
 ) => {
   try {
     let result = "";
@@ -283,7 +283,7 @@ fi`;
 export const reloadDockerResource = async (
   resourceName: string,
   serverId?: string,
-  version?: string
+  version?: string,
 ) => {
   const resourceType = await getDockerResourceType(resourceName, serverId);
   let command = "";
@@ -313,7 +313,7 @@ export const reloadDockerResource = async (
 
 export const readEnvironmentVariables = async (
   resourceName: string,
-  serverId?: string
+  serverId?: string,
 ) => {
   const resourceType = await getDockerResourceType(resourceName, serverId);
   let command = "";
@@ -338,7 +338,7 @@ export const readEnvironmentVariables = async (
 
 export const readPorts = async (
   resourceName: string,
-  serverId?: string
+  serverId?: string,
 ): Promise<
   { targetPort: number; publishedPort: number; protocol?: string }[]
 > => {
@@ -404,26 +404,47 @@ export const readPorts = async (
     }
   }
   return ports.filter(
-    (port: any) => port.targetPort !== 80 && port.targetPort !== 443
+    (port: any) => port.targetPort !== 80 && port.targetPort !== 443,
   );
 };
 
 export const checkPortInUse = async (
   port: number,
-  serverId?: string
+  serverId?: string,
 ): Promise<{ isInUse: boolean; conflictingContainer?: string }> => {
   try {
-    const command = `docker ps -a --format '{{.Names}}' | grep -v '^dokploy-traefik$' | while read name; do docker port "$name" 2>/dev/null | grep -q ':${port}' && echo "$name" && break; done || true`;
-    const { stdout } = serverId
-      ? await execAsyncRemote(serverId, command)
-      : await execAsync(command);
+    // Check if port is in use by a Docker container
+    const dockerCommand = `docker ps -a --format '{{.Names}}' | grep -v '^dokploy-traefik$' | while read name; do docker port "$name" 2>/dev/null | grep -q ':${port}' && echo "$name" && break; done || true`;
+    const { stdout: dockerOut } = serverId
+      ? await execAsyncRemote(serverId, dockerCommand)
+      : await execAsync(dockerCommand);
 
-    const container = stdout.trim();
+    const container = dockerOut.trim();
 
-    return {
-      isInUse: !!container,
-      conflictingContainer: container || undefined,
-    };
+    if (container) {
+      return {
+        isInUse: true,
+        conflictingContainer: `container "${container}"`,
+      };
+    }
+
+    // Check if port is in use by a host-level service (non-Docker)
+    // Dokploy runs inside a container, so we spawn an ephemeral container
+    // with --net=host to share the host's network stack and use nc -z to
+    // check if something is listening on the port
+    const hostCommand = `docker run --rm --net=host busybox sh -c 'nc -z 0.0.0.0 ${port} 2>/dev/null && echo in_use || echo free'`;
+    const { stdout: hostOut } = serverId
+      ? await execAsyncRemote(serverId, hostCommand)
+      : await execAsync(hostCommand);
+
+    if (hostOut.includes("in_use")) {
+      return {
+        isInUse: true,
+        conflictingContainer: "a host-level service",
+      };
+    }
+
+    return { isInUse: false };
   } catch (error) {
     console.error("Error checking port availability:", error);
     return { isInUse: false };
@@ -433,7 +454,7 @@ export const checkPortInUse = async (
 export const writeTraefikSetup = async (input: TraefikOptions) => {
   const resourceType = await getDockerResourceType(
     "dokploy-traefik",
-    input.serverId
+    input.serverId,
   );
 
   if (resourceType === "service") {
@@ -460,7 +481,7 @@ export const reconnectServicesToTraefik = async (serverId?: string) => {
   const composeResult = await db.query.compose.findMany({
     where: and(
       ...(serverId ? [eq(compose.serverId, serverId)] : []),
-      eq(compose.isolatedDeployment, true)
+      eq(compose.isolatedDeployment, true),
     ),
   });
 
