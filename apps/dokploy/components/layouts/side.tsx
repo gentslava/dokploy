@@ -19,6 +19,7 @@ import {
 	Forward,
 	GalleryVerticalEnd,
 	GitBranch,
+	House,
 	Key,
 	KeyRound,
 	Loader2,
@@ -31,6 +32,7 @@ import {
 	Server,
 	ShieldCheck,
 	Star,
+	Tags,
 	Trash2,
 	User,
 	Users,
@@ -147,6 +149,12 @@ type Menu = {
 // The `isEnabled` function is called to determine if the item should be displayed
 const MENU: Menu = {
 	home: [
+		{
+			isSingle: true,
+			title: "Home",
+			url: "/dashboard/home",
+			icon: House,
+		},
 		{
 			isSingle: true,
 			title: "Projects",
@@ -324,6 +332,13 @@ const MENU: Menu = {
 			url: "/dashboard/settings/ai",
 			isSingle: true,
 			isEnabled: ({ permissions }) => !!permissions?.organization.update,
+		},
+		{
+			isSingle: true,
+			title: "Tags",
+			url: "/dashboard/settings/tags",
+			icon: Tags,
+			isEnabled: ({ permissions }) => !!permissions?.tag.read,
 		},
 		{
 			isSingle: true,
@@ -908,6 +923,7 @@ export default function Page({ children }: Props) {
 			onOpenChange={(open) => {
 				setDefaultOpen(open);
 
+				// biome-ignore lint/suspicious/noDocumentCookie: this sets the cookie to keep the sidebar state.
 				document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}`;
 			}}
 			style={
