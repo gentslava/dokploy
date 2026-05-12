@@ -75,7 +75,11 @@ jobs:
         run: |
           if [ "${{ github.ref }}" = "refs/heads/master" ]; then
             TAG="latest"
+            VERSION=$(node -p "require('./apps/dokploy/package.json').version")
             docker buildx imagetools create -t ${IMAGE_NAME}:${TAG} \
+              ${IMAGE_NAME}:${TAG}-amd64 \
+              ${IMAGE_NAME}:${TAG}-arm64
+            docker buildx imagetools create -t ${IMAGE_NAME}:v${VERSION} \
               ${IMAGE_NAME}:${TAG}-amd64 \
               ${IMAGE_NAME}:${TAG}-arm64
 
@@ -100,7 +104,7 @@ jobs:
 
   generate-release:
     needs: [combine-manifests]
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -112,9 +116,21 @@ jobs:
         id: get_version
         run: |
           VERSION=$(node -p "require('./apps/dokploy/package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if release already exists
+        id: check_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${{ steps.get_version.outputs.version }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Create Release
+        if: steps.check_release.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_version.outputs.version }}

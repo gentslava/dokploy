@@ -526,14 +526,25 @@ update_dokploy() {
     # Detect version tag
     VERSION_TAG=$(detect_version)
     DOCKER_IMAGE="gentslava/dokploy:${VERSION_TAG}"
-    
+
     echo "Updating Dokploy to version: ${VERSION_TAG}"
-    
+
     # Pull the image
     docker pull $DOCKER_IMAGE
 
-    # Update the service
-    docker service update --image $DOCKER_IMAGE dokploy
+    # Keep RELEASE_TAG env in sync with the image tag so the running app reports the correct version.
+    release_tag_args=()
+    if echo "$VERSION_TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+        release_tag_args=(--env-add "RELEASE_TAG=latest")
+    elif [ "$VERSION_TAG" != "latest" ]; then
+        release_tag_args=(--env-add "RELEASE_TAG=$VERSION_TAG")
+    else
+        release_tag_args=(--env-rm "RELEASE_TAG")
+    fi
+
+    # --force guarantees the service is recreated even when the tag's digest has changed
+    # but Swarm still has the previously resolved digest pinned in the service spec.
+    docker service update --force "${release_tag_args[@]}" --image "$DOCKER_IMAGE" dokploy
 
     echo "Dokploy has been updated to version: ${VERSION_TAG}"
 }
