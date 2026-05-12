@@ -79,7 +79,7 @@ jobs:
         run: |
           if [ "${{ github.ref }}" = "refs/heads/master" ]; then
             TAG="latest"
-            VERSION=$(node -p "require('./apps/dokploy/package.json').version")
+            VERSION=$(node -p "require('./apps/dokploy/package.json').version" | sed 's/^v//')
             docker buildx imagetools create -t ${IMAGE_NAME}:${TAG} \
               ${IMAGE_NAME}:${TAG}-amd64 \
               ${IMAGE_NAME}:${TAG}-arm64
@@ -119,7 +119,7 @@ jobs:
       - name: Get version
         id: get_version
         run: |
-          VERSION=$(node -p "require('./apps/dokploy/package.json').version")
+          VERSION=$(node -p "require('./apps/dokploy/package.json').version" | sed 's/^v//')
           echo "version=v$VERSION" >> $GITHUB_OUTPUT
 
       - name: Check if release already exists

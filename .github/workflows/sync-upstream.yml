@@ -38,7 +38,7 @@ jobs:
         run: |
           AHEAD=$(git rev-list --count master..upstream/main)
           echo "ahead=$AHEAD" >> "$GITHUB_OUTPUT"
-          UPSTREAM_VERSION=$(git show upstream/main:apps/dokploy/package.json | jq -r .version)
+          UPSTREAM_VERSION=$(git show upstream/main:apps/dokploy/package.json | jq -r .version | sed 's/^v//')
           echo "version=$UPSTREAM_VERSION" >> "$GITHUB_OUTPUT"
           echo "upstream/main is $AHEAD commits ahead of master (version $UPSTREAM_VERSION)"
 
