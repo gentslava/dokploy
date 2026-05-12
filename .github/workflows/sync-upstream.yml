@@ -1,0 +1,83 @@
+name: Sync upstream/main → master
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/Dokploy/dokploy.git
+          git fetch upstream main
+
+      - name: Compare with upstream/main
+        id: check
+        run: |
+          AHEAD=$(git rev-list --count master..upstream/main)
+          echo "ahead=$AHEAD" >> "$GITHUB_OUTPUT"
+          UPSTREAM_VERSION=$(git show upstream/main:apps/dokploy/package.json | jq -r .version)
+          echo "version=$UPSTREAM_VERSION" >> "$GITHUB_OUTPUT"
+          echo "upstream/main is $AHEAD commits ahead of master (version $UPSTREAM_VERSION)"
+
+      - name: Nothing to sync
+        if: steps.check.outputs.ahead == '0'
+        run: echo "master is up to date with upstream/main"
+
+      - name: Prepare sync branch
+        if: steps.check.outputs.ahead != '0'
+        id: merge
+        run: |
+          BRANCH="sync/upstream-main-v${{ steps.check.outputs.version }}"
+          git checkout -B "$BRANCH"
+          if git merge --no-ff upstream/main -m "chore(sync): upstream/main v${{ steps.check.outputs.version }}"; then
+            git push --force-with-lease origin "$BRANCH"
+            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+            echo "conflict=false" >> "$GITHUB_OUTPUT"
+          else
+            git merge --abort || true
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+            echo "::error::Merge conflict between master and upstream/main — resolve manually."
+            exit 1
+          fi
+
+      - name: Open or refresh pull request
+        if: steps.check.outputs.ahead != '0' && steps.merge.outputs.conflict == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="chore(sync): upstream/main v${{ steps.check.outputs.version }}"
+          BODY=$(cat <<EOF
+          Automated sync from \`Dokploy/dokploy@main\` (v${{ steps.check.outputs.version }}).
+
+          Merging this PR pushes a commit to \`master\`, which will trigger the Docker build workflow and publish:
+          - \`${{ secrets.DOCKERHUB_USERNAME }}/dokploy:latest\`
+          - \`${{ secrets.DOCKERHUB_USERNAME }}/dokploy:v${{ steps.check.outputs.version }}\`
+
+          A GitHub Release \`v${{ steps.check.outputs.version }}\` will be created automatically.
+          EOF
+          )
+          EXISTING=$(gh pr list --head "${{ steps.merge.outputs.branch }}" --base master --state open --json number --jq '.[0].number' || true)
+          if [ -n "$EXISTING" ]; then
+            gh pr edit "$EXISTING" --title "$TITLE" --body "$BODY"
+          else
+            gh pr create --base master --head "${{ steps.merge.outputs.branch }}" --title "$TITLE" --body "$BODY"
+          fi
