@@ -140,6 +140,78 @@ recover_existing_postgres_password() {
     return 1
 }
 
+generate_auth_secret() {
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -hex 32
+        return 0
+    fi
+
+    if [ -r /dev/urandom ]; then
+        tr -dc 'a-f0-9' < /dev/urandom | head -c 64
+        echo
+        return 0
+    fi
+
+    echo "Error: openssl or /dev/urandom required to generate auth secret" >&2
+    return 1
+}
+
+persist_auth_secret() {
+    local secret="$1"
+    local secret_dir="/etc/dokploy/secrets"
+    local secret_file="${secret_dir}/auth_secret"
+
+    mkdir -p "$secret_dir"
+    chmod 700 "$secret_dir"
+    (
+        umask 077
+        printf '%s\n' "$secret" > "$secret_file"
+    )
+    chmod 600 "$secret_file"
+}
+
+load_saved_auth_secret() {
+    local secret_file="/etc/dokploy/secrets/auth_secret"
+
+    if [ -r "$secret_file" ]; then
+        head -n1 "$secret_file"
+        return 0
+    fi
+
+    return 1
+}
+
+load_auth_secret_from_service() {
+    local service_name="$1"
+    local container_id=""
+
+    container_id=$(docker ps --filter "label=com.docker.swarm.service.name=${service_name}" --format '{{.ID}}' | head -n1)
+
+    if [ -z "$container_id" ]; then
+        return 1
+    fi
+
+    docker exec "$container_id" cat /run/secrets/dokploy-auth-secret 2>/dev/null
+}
+
+recover_existing_auth_secret() {
+    local secret=""
+
+    secret=$(load_saved_auth_secret 2>/dev/null)
+    if [ -n "$secret" ]; then
+        echo "$secret"
+        return 0
+    fi
+
+    secret=$(load_auth_secret_from_service dokploy 2>/dev/null)
+    if [ -n "$secret" ]; then
+        echo "$secret"
+        return 0
+    fi
+
+    return 1
+}
+
 install_dokploy() {
     # Detect version tag
     VERSION_TAG=$(detect_version)
@@ -284,6 +356,7 @@ install_dokploy() {
     echo "Swarm initialized"
 
     existing_postgres_password=$(recover_existing_postgres_password 2>/dev/null || true)
+    existing_auth_secret=$(recover_existing_auth_secret 2>/dev/null || true)
 
     docker network rm -f dokploy-network 2>/dev/null
     docker network create --driver overlay --attachable dokploy-network
@@ -317,6 +390,31 @@ install_dokploy() {
             echo "Restored existing database credentials (stored in Docker Secrets)"
         else
             echo "Generated secure database credentials (stored in Docker Secrets)"
+        fi
+    fi
+
+    # Docker secrets belong to the swarm, so recreate the auth secret after swarm init if needed.
+    if docker secret inspect dokploy-auth-secret >/dev/null 2>&1; then
+        echo "Auth secret already exists in Docker Secrets, skipping generation"
+    else
+        if [ -n "$existing_auth_secret" ]; then
+            AUTH_SECRET="$existing_auth_secret"
+            echo "Restoring existing auth secret into Docker Secrets"
+        else
+            AUTH_SECRET=$(generate_auth_secret)
+        fi
+
+        if ! printf '%s\n' "$AUTH_SECRET" | docker secret create dokploy-auth-secret - >/dev/null 2>&1; then
+            echo "Error: Failed to create Docker secret dokploy-auth-secret" >&2
+            exit 1
+        fi
+
+        persist_auth_secret "$AUTH_SECRET"
+
+        if [ -n "$existing_auth_secret" ]; then
+            echo "Restored existing auth secret (stored in Docker Secrets)"
+        else
+            echo "Generated secure auth secret (stored in Docker Secrets)"
         fi
     fi
 
@@ -359,6 +457,7 @@ install_dokploy() {
       --mount type=bind,source=/etc/dokploy,target=/etc/dokploy \
       --mount type=volume,source=dokploy,target=/root/.docker \
       --secret source=dokploy_postgres_password,target=/run/secrets/postgres_password \
+      --secret source=dokploy-auth-secret,target=/run/secrets/dokploy-auth-secret \
       --publish published=3000,target=3000,mode=host \
       --update-parallelism 1 \
       --update-order stop-first \
@@ -367,6 +466,7 @@ install_dokploy() {
       $release_tag_env \
       -e ADVERTISE_ADDR=$advertise_addr \
       -e POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password \
+      -e BETTER_AUTH_SECRET_FILE=/run/secrets/dokploy-auth-secret \
       $DOCKER_IMAGE
 
     sleep 4
