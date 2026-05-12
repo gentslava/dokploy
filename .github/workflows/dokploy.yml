@@ -5,6 +5,10 @@ on:
     branches: [master, main, canary, "fix/re-apply-database-migration-fix"]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/dokploy
 
