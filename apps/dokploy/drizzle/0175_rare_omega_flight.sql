@@ -1,1 +1,1 @@
-ALTER TABLE "domain" ADD COLUMN "enabled" boolean DEFAULT true NOT NULL;
+ALTER TABLE "domain" ADD COLUMN IF NOT EXISTS "enabled" boolean DEFAULT true NOT NULL;
