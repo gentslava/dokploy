@@ -9,10 +9,7 @@ const migrationsDirectory = fileURLToPath(
 describe("Drizzle migrations", () => {
 	it("makes the domain.enabled migration safe to replay", async () => {
 		const sql = (
-			await readFile(
-				`${migrationsDirectory}/0175_rare_omega_flight.sql`,
-				"utf8",
-			)
+			await readFile(`${migrationsDirectory}/0183_tearful_groot.sql`, "utf8")
 		).trim();
 
 		expect(sql).toBe(
