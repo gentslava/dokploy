@@ -185,7 +185,8 @@ jobs:
 
   sync-version:
     needs: [generate-release]
-    if: github.ref == 'refs/heads/master'
+    # These steps push to Dokploy's MCP, CLI, and SDK repositories.
+    if: github.repository == 'Dokploy/dokploy'
     runs-on: ubuntu-latest
     env:
       NPM_VERSION: ${{ needs.generate-release.outputs.npm_version }}
