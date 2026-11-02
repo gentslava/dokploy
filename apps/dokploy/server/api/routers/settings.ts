@@ -15,12 +15,15 @@ import {
 	DEFAULT_UPDATE_DATA,
 	findServerById,
 	getDockerDiskUsage,
+	getDockerResourceType,
 	getDokployImageTag,
 	getLogCleanupStatus,
+	getPostHogKey,
 	getTraefikOverview,
 	getUpdateData,
 	getWebServerSettings,
 	IS_CLOUD,
+	POSTHOG_HOST,
 	parseRawConfig,
 	paths,
 	prepareEnvironmentVariables,
@@ -603,6 +606,15 @@ export const settingsRouter = createTRPCRouter({
 			return true;
 		}
 
+		const resourceType = await getDockerResourceType("dokploy");
+		if (resourceType !== "service") {
+			throw new TRPCError({
+				code: "BAD_REQUEST",
+				message:
+					"Dokploy is not running as a Docker service, so in-panel updates are unavailable here. Update manually instead.",
+			});
+		}
+
 		const data = await getUpdateData(packageInfo.version);
 		if (data.updateAvailable) {
 			void spawnAsync("docker", [
@@ -855,9 +867,7 @@ export const settingsRouter = createTRPCRouter({
 					totalCount: 0,
 				};
 			}
-			const rawConfig = await readMonitoringConfig(
-				!!input.dateRange?.start && !!input.dateRange?.end,
-			);
+			const rawConfig = await readMonitoringConfig(input.dateRange);
 
 			const parsedConfig = parseRawConfig(
 				rawConfig as string,
@@ -895,9 +905,7 @@ export const settingsRouter = createTRPCRouter({
 			if (IS_CLOUD) {
 				return [];
 			}
-			const rawConfig = await readMonitoringConfig(
-				!!input?.dateRange?.start || !!input?.dateRange?.end,
-			);
+			const rawConfig = await readMonitoringConfig(input?.dateRange);
 			const processedLogs = processLogs(rawConfig as string, input?.dateRange);
 			return processedLogs || [];
 		}),
@@ -958,6 +966,10 @@ export const settingsRouter = createTRPCRouter({
 		}),
 	isCloud: publicProcedure.query(async () => {
 		return IS_CLOUD;
+	}),
+	getPostHogConfig: publicProcedure.query(() => {
+		const key = getPostHogKey();
+		return key ? { key, host: POSTHOG_HOST } : null;
 	}),
 	isUserSubscribed: protectedProcedure.query(async ({ ctx }) => {
 		const haveServers = await db.query.server.findMany({
