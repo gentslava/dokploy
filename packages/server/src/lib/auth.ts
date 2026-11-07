@@ -6,7 +6,11 @@ import { sso } from "@better-auth/sso";
 import * as bcrypt from "bcrypt";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError, createAuthMiddleware } from "better-auth/api";
+import {
+	APIError,
+	createAuthMiddleware,
+	getSessionFromCtx,
+} from "better-auth/api";
 import { admin, organization, twoFactor } from "better-auth/plugins";
 import { and, desc, eq } from "drizzle-orm";
 import { IS_CLOUD } from "../constants";
@@ -64,6 +68,29 @@ const resolveTrustedOrigins = async () => {
 	}
 };
 
+const rewriteToCanonicalOrigin = async (url: string): Promise<string> => {
+	try {
+		const configured = process.env.BETTER_AUTH_URL;
+		let origin: string | null = configured ?? null;
+		if (!origin) {
+			const settings = await getWebServerSettings();
+			origin = settings?.host
+				? `${settings.https ? "https" : "http"}://${settings.host}`
+				: settings?.serverIp
+					? `http://${settings.serverIp}:3000`
+					: null;
+		}
+		if (!origin) return url;
+		const target = new URL(url);
+		const canonical = new URL(origin);
+		target.protocol = canonical.protocol;
+		target.host = canonical.host;
+		return target.toString();
+	} catch {
+		return url;
+	}
+};
+
 const createBetterAuth = () =>
 	betterAuth({
 		database: drizzleAdapter(db, {
@@ -75,6 +102,8 @@ const createBetterAuth = () =>
 			"/organization/create",
 			"/organization/update",
 			"/organization/delete",
+			"/organization/update-member-role",
+			"/organization/invite-member",
 			// GHSA-j8v8-g9cx-5qf4: SCIM providers are managed via tRPC, org-scoped only.
 			"/scim/generate-token",
 			"/scim/list-provider-connections",
@@ -138,6 +167,21 @@ const createBetterAuth = () =>
 					});
 				}
 
+				if (ctx.path === "/two-factor/enable") {
+					const session = await getSessionFromCtx(ctx);
+					if (session && !session.user.twoFactorEnabled) {
+						await db
+							.update(schema.twoFactor)
+							.set({ verified: false })
+							.where(
+								and(
+									eq(schema.twoFactor.userId, session.user.id),
+									eq(schema.twoFactor.verified, true),
+								),
+							);
+					}
+				}
+
 				const isBlockedAuthPath =
 					ctx.path.startsWith("/sign-in/email") ||
 					ctx.path.startsWith("/sign-in/social") ||
@@ -166,7 +210,7 @@ const createBetterAuth = () =>
 					await sendVerificationEmail({
 						userName: user.name || "User",
 						email: user.email,
-						verificationUrl: url,
+						verificationUrl: await rewriteToCanonicalOrigin(url),
 					});
 				}
 			},
@@ -185,11 +229,12 @@ const createBetterAuth = () =>
 				},
 			},
 			sendResetPassword: async ({ user, url }) => {
+				const safeUrl = await rewriteToCanonicalOrigin(url);
 				await sendEmail({
 					email: user.email,
 					subject: "Reset your password",
 					text: `
-				<p>Click the link to reset your password: <a href="${url}">Reset Password</a></p>
+				<p>Click the link to reset your password: <a href="${safeUrl}">Reset Password</a></p>
 				`,
 				});
 			},
@@ -529,8 +574,6 @@ const createBetterAuth = () =>
 		],
 	});
 
-// Una sola instancia de better-auth por proceso aunque el módulo esté
-// duplicado en varios bundles.
 const globalForAuth = globalThis as unknown as {
 	betterAuthInstance?: ReturnType<typeof createBetterAuth>;
 };
@@ -610,6 +653,13 @@ export const validateRequest = async (request: IncomingMessage) => {
 					organization: true,
 				},
 			});
+
+			if (!member) {
+				return {
+					session: null,
+					user: null,
+				};
+			}
 
 			// When accessing from DB, use actual column names
 			const userFromDb = apiKeyRecord.user as typeof apiKeyRecord.user & {
