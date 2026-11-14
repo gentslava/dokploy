@@ -10,6 +10,8 @@ import {
 	findPasskeysByUserId,
 	findUserById,
 	getDokployUrl,
+	getMetricsOrigin,
+	getRootAdminIds,
 	getUserByToken,
 	getWebServerSettings,
 	IS_CLOUD,
@@ -35,6 +37,7 @@ import {
 } from "@dokploy/server/db/schema";
 import { providerFetch } from "@dokploy/server/services/logs-and-metrics/provider-fetch";
 import {
+	checkPermission,
 	hasPermission,
 	resolvePermissions,
 } from "@dokploy/server/services/permission";
@@ -75,11 +78,15 @@ const hasRootAccess = (ctx: {
 	user: { id: string };
 	session: { impersonatedBy?: string } | null;
 }) => {
-	const rootId = process.env.USER_ADMIN_ID;
-	if (!IS_CLOUD || !rootId) {
+	if (!IS_CLOUD) {
 		return false;
 	}
-	return rootId === ctx.user.id || ctx.session?.impersonatedBy === rootId;
+	const rootIds = getRootAdminIds();
+	return (
+		rootIds.includes(ctx.user.id) ||
+		(!!ctx.session?.impersonatedBy &&
+			rootIds.includes(ctx.session.impersonatedBy))
+	);
 };
 
 const assertCanDeleteOwnAccount = async (ctx: {
@@ -585,7 +592,7 @@ export const userRouter = createTRPCRouter({
 				});
 			}
 
-			if (target.id === process.env.USER_ADMIN_ID) {
+			if (getRootAdminIds().includes(target.id)) {
 				throw new TRPCError({
 					code: "BAD_REQUEST",
 					message: "The root account cannot be deleted",
@@ -670,7 +677,7 @@ export const userRouter = createTRPCRouter({
 				dataPoints: z.string(),
 			}),
 		)
-		.query(async ({ input }) => {
+		.query(async ({ input, ctx }) => {
 			try {
 				if (!input.appName) {
 					throw new Error(
@@ -681,7 +688,8 @@ export const userRouter = createTRPCRouter({
 						].join("\n"),
 					);
 				}
-				const url = new URL(`${input.url}/metrics/containers`);
+				const origin = await getMetricsOrigin(ctx.session, input.url);
+				const url = new URL(`${origin}/metrics/containers`);
 				url.searchParams.append("limit", input.dataPoints);
 				url.searchParams.append("appName", input.appName);
 				const response = await providerFetch(url.toString(), {
@@ -782,6 +790,13 @@ export const userRouter = createTRPCRouter({
 					});
 				}
 			}
+
+			const activeOrganizationId =
+				input.metadata?.organizationId || ctx.session.activeOrganizationId;
+			await checkPermission(
+				{ user: ctx.user, session: { activeOrganizationId } },
+				{ api: ["read"] },
+			);
 
 			const apiKey = await createApiKey(ctx.user.id, input);
 			await audit(ctx, {
