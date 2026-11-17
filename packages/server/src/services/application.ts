@@ -371,37 +371,41 @@ export const deployPreviewApplication = async ({
 		comment_id: Number.parseInt(previewDeployment.pullRequestCommentId),
 		githubId: application?.githubId || "",
 	};
+	// Previews deployed from an image may have no GitHub provider to comment with.
+	const commentOnPullRequest = !!application.githubId;
 	try {
-		const commentExists = await issueCommentExists({
-			...issueParams,
-		});
-		if (!commentExists) {
-			const result = await createPreviewDeploymentComment({
+		if (commentOnPullRequest) {
+			const commentExists = await issueCommentExists({
 				...issueParams,
-				previewDomain,
-				appName: previewDeployment.appName,
-				githubId: application?.githubId || "",
-				previewDeploymentId,
 			});
-
-			if (!result) {
-				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: "Pull request comment not found",
+			if (!commentExists) {
+				const result = await createPreviewDeploymentComment({
+					...issueParams,
+					previewDomain,
+					appName: previewDeployment.appName,
+					githubId: application?.githubId || "",
+					previewDeploymentId,
 				});
-			}
 
-			issueParams.comment_id = Number.parseInt(result?.pullRequestCommentId);
+				if (!result) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Pull request comment not found",
+					});
+				}
+
+				issueParams.comment_id = Number.parseInt(result?.pullRequestCommentId);
+			}
+			const buildingComment = getIssueComment(
+				application.name,
+				"running",
+				previewDomain,
+			);
+			await updateIssueComment({
+				...issueParams,
+				body: `### Dokploy Preview Deployment\n\n${buildingComment}`,
+			});
 		}
-		const buildingComment = getIssueComment(
-			application.name,
-			"running",
-			previewDomain,
-		);
-		await updateIssueComment({
-			...issueParams,
-			body: `### Dokploy Preview Deployment\n\n${buildingComment}`,
-		});
 		application.appName = previewDeployment.appName;
 		application.env = `${application.previewEnv}\nDOKPLOY_DEPLOY_URL=${previewDeployment?.domain?.host}`;
 		application.buildArgs = `${application.previewBuildArgs}\nDOKPLOY_DEPLOY_URL=${previewDeployment?.domain?.host}`;
@@ -418,6 +422,15 @@ export const deployPreviewApplication = async ({
 				appName: previewDeployment.appName,
 				branch: previewDeployment.branch,
 			});
+		} else if (application.sourceType === "docker") {
+			application.dockerImage = previewDeployment.dockerImage;
+			command += await buildRemoteDocker(application);
+		}
+
+		if (
+			application.sourceType === "github" ||
+			application.sourceType === "docker"
+		) {
 			command += await getBuildCommand(application);
 
 			const commandWithLog = `(${command}) >> ${deployment.logPath} 2>&1`;
@@ -428,25 +441,29 @@ export const deployPreviewApplication = async ({
 			}
 			await mechanizeDockerContainer(application);
 		}
-		const successComment = getIssueComment(
-			application.name,
-			"success",
-			previewDomain,
-		);
-		await updateIssueComment({
-			...issueParams,
-			body: `### Dokploy Preview Deployment\n\n${successComment}`,
-		});
+		if (commentOnPullRequest) {
+			const successComment = getIssueComment(
+				application.name,
+				"success",
+				previewDomain,
+			);
+			await updateIssueComment({
+				...issueParams,
+				body: `### Dokploy Preview Deployment\n\n${successComment}`,
+			});
+		}
 		await updateDeploymentStatus(deployment.deploymentId, "done");
 		await updatePreviewDeployment(previewDeploymentId, {
 			previewStatus: "done",
 		});
 	} catch (error) {
-		const comment = getIssueComment(application.name, "error", previewDomain);
-		await updateIssueComment({
-			...issueParams,
-			body: `### Dokploy Preview Deployment\n\n${comment}`,
-		});
+		if (commentOnPullRequest) {
+			const comment = getIssueComment(application.name, "error", previewDomain);
+			await updateIssueComment({
+				...issueParams,
+				body: `### Dokploy Preview Deployment\n\n${comment}`,
+			});
+		}
 		await updateDeploymentStatus(deployment.deploymentId, "error");
 		await updatePreviewDeployment(previewDeploymentId, {
 			previewStatus: "error",
@@ -486,39 +503,42 @@ export const rebuildPreviewApplication = async ({
 		comment_id: Number.parseInt(previewDeployment.pullRequestCommentId),
 		githubId: application?.githubId || "",
 	};
+	const commentOnPullRequest = !!application.githubId;
 
 	try {
-		const commentExists = await issueCommentExists({
-			...issueParams,
-		});
-		if (!commentExists) {
-			const result = await createPreviewDeploymentComment({
+		if (commentOnPullRequest) {
+			const commentExists = await issueCommentExists({
 				...issueParams,
-				previewDomain,
-				appName: previewDeployment.appName,
-				githubId: application?.githubId || "",
-				previewDeploymentId,
 			});
-
-			if (!result) {
-				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: "Pull request comment not found",
+			if (!commentExists) {
+				const result = await createPreviewDeploymentComment({
+					...issueParams,
+					previewDomain,
+					appName: previewDeployment.appName,
+					githubId: application?.githubId || "",
+					previewDeploymentId,
 				});
+
+				if (!result) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Pull request comment not found",
+					});
+				}
+
+				issueParams.comment_id = Number.parseInt(result?.pullRequestCommentId);
 			}
 
-			issueParams.comment_id = Number.parseInt(result?.pullRequestCommentId);
+			const buildingComment = getIssueComment(
+				application.name,
+				"running",
+				previewDomain,
+			);
+			await updateIssueComment({
+				...issueParams,
+				body: `### Dokploy Preview Deployment\n\n${buildingComment}`,
+			});
 		}
-
-		const buildingComment = getIssueComment(
-			application.name,
-			"running",
-			previewDomain,
-		);
-		await updateIssueComment({
-			...issueParams,
-			body: `### Dokploy Preview Deployment\n\n${buildingComment}`,
-		});
 
 		// Set application properties for preview deployment
 		application.appName = previewDeployment.appName;
@@ -547,6 +567,9 @@ export const rebuildPreviewApplication = async ({
 				branch: previewDeployment.branch,
 			});
 			command += `if ! git --git-dir=${quote([join(codePath, ".git")])} rev-parse --verify --quiet HEAD >/dev/null 2>&1; then echo "Source code not found, cloning the repository before rebuilding"; ${cloneCommand} fi;`;
+		} else if (application.sourceType === "docker") {
+			application.dockerImage = previewDeployment.dockerImage;
+			command += await buildRemoteDocker(application);
 		}
 		command += await getBuildCommand(application);
 		const commandWithLog = `(${command}) >> ${deployment.logPath} 2>&1`;
@@ -557,15 +580,17 @@ export const rebuildPreviewApplication = async ({
 		}
 		await mechanizeDockerContainer(application);
 
-		const successComment = getIssueComment(
-			application.name,
-			"success",
-			previewDomain,
-		);
-		await updateIssueComment({
-			...issueParams,
-			body: `### Dokploy Preview Deployment\n\n${successComment}`,
-		});
+		if (commentOnPullRequest) {
+			const successComment = getIssueComment(
+				application.name,
+				"success",
+				previewDomain,
+			);
+			await updateIssueComment({
+				...issueParams,
+				body: `### Dokploy Preview Deployment\n\n${successComment}`,
+			});
+		}
 		await updateDeploymentStatus(deployment.deploymentId, "done");
 		await updatePreviewDeployment(previewDeploymentId, {
 			previewStatus: "done",
@@ -574,11 +599,13 @@ export const rebuildPreviewApplication = async ({
 		const serverId = application.buildServerId || application.serverId;
 		await writeDeploymentErrorLog(deployment, serverId, error);
 
-		const comment = getIssueComment(application.name, "error", previewDomain);
-		await updateIssueComment({
-			...issueParams,
-			body: `### Dokploy Preview Deployment\n\n${comment}`,
-		});
+		if (commentOnPullRequest) {
+			const comment = getIssueComment(application.name, "error", previewDomain);
+			await updateIssueComment({
+				...issueParams,
+				body: `### Dokploy Preview Deployment\n\n${comment}`,
+			});
+		}
 		await updateDeploymentStatus(deployment.deploymentId, "error");
 		await updatePreviewDeployment(previewDeploymentId, {
 			previewStatus: "error",
