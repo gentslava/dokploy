@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { docker, paths } from "@dokploy/server/constants";
-import { db } from "@dokploy/server/db";
+import { type DbExecutor, db } from "@dokploy/server/db";
 import {
 	type apiCreateApplication,
 	applications,
@@ -93,8 +93,11 @@ export const createApplication = async (
 	});
 };
 
-export const findApplicationById = async (applicationId: string) => {
-	const application = await db.query.applications.findFirst({
+export const findApplicationById = async (
+	applicationId: string,
+	executor: DbExecutor = db,
+) => {
+	const application = await executor.query.applications.findFirst({
 		where: eq(applications.applicationId, applicationId),
 		with: {
 			environment: { with: { project: true } },
