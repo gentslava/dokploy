@@ -1,6 +1,6 @@
 {
-  "id": "082568fd-578c-4f3d-848b-991c0d466233",
-  "prevId": "8c9be128-03f8-4f35-8123-2180f30f6ba2",
+  "id": "15db4ad1-624f-419e-be6a-dacfbba6dba1",
+  "prevId": "f27fc2b9-d6c7-420a-86cf-2e1eeeb42734",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1206,6 +1206,24 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "ssoAllowedEmails": {
+          "name": "ssoAllowedEmails",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ssoAllowedGroups": {
+          "name": "ssoAllowedGroups",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ssoAllowedEmailDomains": {
+          "name": "ssoAllowedEmailDomains",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
         },
         "isPreviewDeploymentsActive": {
           "name": "isPreviewDeploymentsActive",
@@ -6767,30 +6785,7 @@
           "notNull": false
         }
       },
-      "indexes": {
-        "preview_deployments_app_pull_request_image_idx": {
-          "name": "preview_deployments_app_pull_request_image_idx",
-          "columns": [
-            {
-              "expression": "applicationId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "pullRequestNumber",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"preview_deployments\".\"dockerImage\" is not null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "preview_deployments_applicationId_application_applicationId_fk": {
           "name": "preview_deployments_applicationId_application_applicationId_fk",

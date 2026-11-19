@@ -275,20 +275,37 @@ const routePreviewDeployment = async (
 ) => {
 	await manageDomain(application, domain);
 
-	// The SSO toggle skips previews without a linked domain, so catch a change made while this one was being created.
+	// The SSO toggle and allowlist skip previews without a linked domain, so catch a change made while this one was being created.
 	const current = await db.query.applications.findFirst({
 		where: eq(applications.applicationId, application.applicationId),
-		columns: { previewForwardAuthEnabled: true },
+		columns: {
+			previewForwardAuthEnabled: true,
+			ssoAllowedEmails: true,
+			ssoAllowedGroups: true,
+			ssoAllowedEmailDomains: true,
+		},
 	});
-	if (
-		current &&
-		current.previewForwardAuthEnabled !== domain.forwardAuthEnabled
-	) {
-		await applyPreviewForwardAuth(
-			application,
-			domain.domainId,
-			current.previewForwardAuthEnabled,
+	if (current) {
+		const allowlistChanged = (
+			[
+				"ssoAllowedEmails",
+				"ssoAllowedGroups",
+				"ssoAllowedEmailDomains",
+			] as const
+		).some(
+			(key) =>
+				JSON.stringify(current[key]) !== JSON.stringify(application[key]),
 		);
+		Object.assign(application, current);
+		if (current.previewForwardAuthEnabled !== domain.forwardAuthEnabled) {
+			await applyPreviewForwardAuth(
+				application,
+				domain.domainId,
+				current.previewForwardAuthEnabled,
+			);
+		} else if (allowlistChanged && domain.forwardAuthEnabled) {
+			await manageDomain(application, domain);
+		}
 	}
 };
 

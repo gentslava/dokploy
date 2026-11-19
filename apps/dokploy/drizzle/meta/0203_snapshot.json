@@ -1,5 +1,5 @@
 {
-  "id": "8c9be128-03f8-4f35-8123-2180f30f6ba2",
+  "id": "f27fc2b9-d6c7-420a-86cf-2e1eeeb42734",
   "prevId": "b1d1b864-a7b9-4c89-872f-67035b0a9879",
   "version": "7",
   "dialect": "postgresql",
@@ -1206,6 +1206,24 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "ssoAllowedEmails": {
+          "name": "ssoAllowedEmails",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ssoAllowedGroups": {
+          "name": "ssoAllowedGroups",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ssoAllowedEmailDomains": {
+          "name": "ssoAllowedEmailDomains",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
         },
         "isPreviewDeploymentsActive": {
           "name": "isPreviewDeploymentsActive",
@@ -6744,12 +6762,6 @@
         },
         "domainId": {
           "name": "domainId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "dockerImage": {
-          "name": "dockerImage",
           "type": "text",
           "primaryKey": false,
           "notNull": false

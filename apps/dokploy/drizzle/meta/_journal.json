@@ -1426,15 +1426,22 @@
     {
       "idx": 203,
       "version": "7",
-      "when": 1794899683697,
-      "tag": "0203_minor_wendigo",
+      "when": 1795014351724,
+      "tag": "0203_cooing_prodigy",
       "breakpoints": true
     },
     {
       "idx": 204,
       "version": "7",
-      "when": 1794902978702,
-      "tag": "0204_short_mimic",
+      "when": 1795076308737,
+      "tag": "0204_simple_king_cobra",
+      "breakpoints": true
+    },
+    {
+      "idx": 205,
+      "version": "7",
+      "when": 1795076320017,
+      "tag": "0205_nasty_pyro",
       "breakpoints": true
     }
   ]
