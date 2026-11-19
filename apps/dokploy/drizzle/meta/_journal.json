@@ -1443,6 +1443,13 @@
       "when": 1795076320017,
       "tag": "0205_nasty_pyro",
       "breakpoints": true
+    },
+    {
+      "idx": 206,
+      "version": "7",
+      "when": 1795076357239,
+      "tag": "0206_wealthy_doctor_spectrum",
+      "breakpoints": true
     }
   ]
 }

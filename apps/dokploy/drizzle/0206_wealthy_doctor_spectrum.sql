@@ -1,0 +1,1 @@
+ALTER TABLE "application" ADD COLUMN IF NOT EXISTS "previewStackedPullRequests" boolean DEFAULT false NOT NULL;
